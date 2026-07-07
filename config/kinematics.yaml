@@ -1,36 +1,16 @@
 # KDL-IK fuer den interaktiven MoveIt-Marker in RViz (lokal gerechnet).
 #
-# Wird per --params-file auf den rviz2-Node geladen. MoveIt liest fuer JEDE
-# Planungsgruppe aus dem (live geladenen) SRDF den Eintrag
-# robot_description_kinematics.<gruppenname>. Eintraege fuer nicht existierende
-# Gruppen werden ignoriert -> daher hier mehrere Kandidatennamen. Der Roboter
-# definiert den echten Namen; taucht der Marker nicht auf, den tatsaechlichen
-# Gruppennamen (Dropdown "Planning Group" in RViz bzw.
-#   ros2 topic echo /a200_0553/robot_description_semantic --once | grep '<group '
-# ) hier ergaenzen.
+# Wird per --params-file auf den rviz2-Node geladen. MoveIt liest fuer die im
+# SRDF definierte Planungsgruppe robot_description_kinematics.<gruppe>. Der echte
+# Roboter definiert genau EINE Gruppe: 'arm_0' (die 6 UR5-Gelenke, Tip
+# arm_0_wrist_3_link). KDL leitet Base/Tip aus den Gruppen-Joints ab.
 #
 # Ohne diese Datei bleibt MoveIt nutzbar: Joints-Tab, "Update", Plan & Execute
 # funktionieren, nur das freie Ziehen der Endeffektor-Kugel braucht lokale IK.
 /**:
   ros__parameters:
     robot_description_kinematics:
-      manipulator:
-        kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
-        kinematics_solver_search_resolution: 0.005
-        kinematics_solver_timeout: 0.05
-      ur_manipulator:
-        kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
-        kinematics_solver_search_resolution: 0.005
-        kinematics_solver_timeout: 0.05
       arm_0:
-        kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
-        kinematics_solver_search_resolution: 0.005
-        kinematics_solver_timeout: 0.05
-      arm_0_manipulator:
-        kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
-        kinematics_solver_search_resolution: 0.005
-        kinematics_solver_timeout: 0.05
-      arm_0_ur_manipulator:
         kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
         kinematics_solver_search_resolution: 0.005
         kinematics_solver_timeout: 0.05

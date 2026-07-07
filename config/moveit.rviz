@@ -22,7 +22,7 @@ Visualization Manager:
       Color: 160; 160; 164
     - Class: rviz_default_plugins/TF
       Name: TF
-      Enabled: true
+      Enabled: false
       Marker Scale: 0.5
       Show Names: false
       Show Axes: true
@@ -54,7 +54,7 @@ Visualization Manager:
         Show Robot Visual: true
       Planning Request:
         Colliding Link Color: 255; 0; 0
-        Planning Group: ""
+        Planning Group: arm_0
         Query Goal State: true
         Query Start State: false
         Show Workspace: false
@@ -75,6 +75,10 @@ Visualization Manager:
     Fixed Frame: base_link
     Frame Rate: 30
   Tools:
+    # Interact MUSS dabei sein (und aktiv), sonst lassen sich die interaktiven
+    # MoveIt-Marker nicht greifen -> jeder Klick dreht nur die Kamera.
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Select
     - Class: rviz_default_plugins/Measure
