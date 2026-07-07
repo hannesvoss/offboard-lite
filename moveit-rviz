@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Oeffnet RViz mit dem MoveIt-Motion-Planning-Plugin, verbunden mit dem
+# move_group des ECHTEN Roboters (ueber den Zenoh-Graphen).
+#
+# Modell (URDF/SRDF) wird beim Start per Parameter-Service vom Roboter gezogen
+# (robot_state_publisher.robot_description + move_group.robot_description_semantic)
+# und als lokale Params an RViz gegeben -- die gelatchte String-Topic wird ueber
+# die Zenoh-Bridge nicht zuverlaessig an spaete Subscriber ausgeliefert.
+# Planungs-Goals gehen an die move_action-Action des Roboters -> der Roboter
+# plant und fuehrt aus. Dieser Container hostet KEIN move_group.
+set -uo pipefail
+
+# ROS-Setup-Skripte vertragen kein nounset (referenzieren u.a.
+# AMENT_TRACE_SETUP_FILES ungesetzt) -> beim Sourcen set +u.
+set +u
+source /opt/ros/jazzy/setup.bash
+# rg6_description-Overlay (Greifer-Meshes) fuer package://rg6_description
+[ -f /opt/onrobot-rg6/install/setup.bash ] && source /opt/onrobot-rg6/install/setup.bash
+set -u
+export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_zenoh_cpp}"
+export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
+export DISPLAY="${DISPLAY:-:1}"
+
+NS="${CLEARPATH_NS:-a200_0553}"
+RVIZ_CFG="${MOVEIT_RVIZ_CONFIG:-/opt/moveit_rviz/moveit.rviz}"
+KIN="${MOVEIT_KINEMATICS:-/opt/moveit_rviz/kinematics.yaml}"
+
+# Die .rviz-Config ist auf den Default-Namespace a200_0553 verdrahtet. Bei
+# abweichendem CLEARPATH_NS die Topics on-the-fly umschreiben (unveraendert
+# lassen wir /opt/... -> Kopie nach /tmp).
+if [ "$NS" != "a200_0553" ] && [ -f "$RVIZ_CFG" ]; then
+    sed "s#a200_0553#${NS}#g" "$RVIZ_CFG" > /tmp/moveit.rviz
+    RVIZ_CFG=/tmp/moveit.rviz
+fi
+
+echo "[moveit-rviz] NS=${NS}  RMW=${RMW_IMPLEMENTATION}"
+echo "[moveit-rviz] warte auf Nodes des Roboters ..."
+if command -v timeout >/dev/null 2>&1; then
+    timeout 8 ros2 node list 2>/dev/null | grep -q "/${NS}/move_group" \
+        && echo "[moveit-rviz]   -> /${NS}/move_group gefunden." \
+        || echo "[moveit-rviz]   -> move_group noch nicht sichtbar (Zenoh/Netz? Roboter an?)."
+fi
+
+# --- URDF + SRDF vom laufenden Roboter holen und als LOKALE Params an RViz ---
+# Warum: RViz/MoveIt findet 'robot_description' weder als Parameter noch (ueber
+# die Zenoh-Bridge, transient_local) als String-Topic -> URDF ist leer ->
+# "XML_ERROR_EMPTY_DOCUMENT". Loesung ohne Clearpath-Generator: die vom Roboter
+# bereits berechneten URDF/SRDF einmalig per Parameter-Service ziehen und als
+# lokale Parameter uebergeben (declare_parameter nimmt den Override an -> Modell
+# laedt). Nodes sind autodiscovered; per Env ueberschreibbar (CP_RSP_NODE/CP_MG_NODE).
+RSP_NODE="${CP_RSP_NODE:-$(ros2 node list 2>/dev/null | grep -E 'robot_state_publisher$' | grep -F "/${NS}" | head -n1)}"
+[ -z "${RSP_NODE:-}" ] && RSP_NODE="/${NS}/robot_state_publisher"
+MG_NODE="${CP_MG_NODE:-$(ros2 node list 2>/dev/null | grep -E '/move_group$' | grep -F "/${NS}" | head -n1)}"
+[ -z "${MG_NODE:-}" ] && MG_NODE="/${NS}/move_group"
+
+# fetch_param NODE PARAM OUTFILE -> 0 bei nicht-leerem, plausiblem Wert
+fetch_param() {
+    ros2 param get --hide-type "$1" "$2" > "$3" 2>/dev/null || return 1
+    [ -s "$3" ] || return 1
+    grep -qiE 'not set|does not have parameter|Parameter not' "$3" && return 1
+    return 0
+}
+
+urdf_ok=0; srdf_ok=0
+# URDF primaer vom move_group (hat garantiert das VOLLSTAENDIGE, geplante URDF;
+# ein robot_state_publisher koennte bei Clearpath nur ein Teil-URDF haben),
+# robot_state_publisher als Fallback.
+echo "[moveit-rviz] hole URDF von ${MG_NODE} ..."
+if fetch_param "$MG_NODE" robot_description /tmp/urdf.xml; then
+    urdf_ok=1; echo "[moveit-rviz]   -> URDF ok ($(wc -c </tmp/urdf.xml) Bytes, via move_group)."
+elif fetch_param "$RSP_NODE" robot_description /tmp/urdf.xml; then
+    urdf_ok=1; echo "[moveit-rviz]   -> URDF ok ($(wc -c </tmp/urdf.xml) Bytes, via robot_state_publisher)."
+else
+    echo "[moveit-rviz]   -> WARN: URDF-Parameter nicht lesbar (Nodes: '${MG_NODE}' / '${RSP_NODE}')."
+fi
+echo "[moveit-rviz] hole SRDF von ${MG_NODE} ..."
+if fetch_param "$MG_NODE" robot_description_semantic /tmp/srdf.xml; then
+    srdf_ok=1; echo "[moveit-rviz]   -> SRDF ok ($(wc -c </tmp/srdf.xml) Bytes)."
+else
+    echo "[moveit-rviz]   -> WARN: SRDF-Parameter nicht lesbar (Planning-Group bleibt evtl. leer)."
+fi
+
+PARAM_ARGS=(--params-file "$KIN")
+if [ "$urdf_ok" = 1 ]; then
+    SRDF_ARG=""; [ "$srdf_ok" = 1 ] && SRDF_ARG=/tmp/srdf.xml
+    python3 - "$SRDF_ARG" >/tmp/robot_params.yaml <<'PY'
+import sys, yaml
+p = {"robot_description": open("/tmp/urdf.xml").read()}
+srdf = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else ""
+if srdf:
+    p["robot_description_semantic"] = open(srdf).read()
+# yaml.safe_dump escaped die XML-Strings korrekt fuer den rclcpp-Param-Parser.
+print(yaml.safe_dump({"/**": {"ros__parameters": p}}, allow_unicode=True))
+PY
+    PARAM_ARGS+=(--params-file /tmp/robot_params.yaml)
+    echo "[moveit-rviz] URDF/SRDF als lokale Params geladen."
+else
+    echo "[moveit-rviz] Starte RViz OHNE lokales Modell (Fallback: Topic-Subscription)."
+fi
+
+# --- TF-Remapping ----------------------------------------------------------
+# Clearpath publiziert TF GENAMESPACED (/<ns>/tf, /<ns>/tf_static). RViz laeuft
+# im globalen Namespace und wuerde sonst /tf abonnieren -> "No tf data" -> ohne
+# TF kann MoveIt den aktuellen Zustand nicht aufloesen -> kein Planen.
+# Daher /tf + /tf_static auf den Roboter-Namespace remappen. Falls dein Setup TF
+# doch global publiziert: CP_TF_REMAP=0 moveit-rviz.
+TF_REMAP=()
+if [ "${CP_TF_REMAP:-1}" = "1" ]; then
+    TF_REMAP=(-r /tf:=/${NS}/tf -r /tf_static:=/${NS}/tf_static)
+    echo "[moveit-rviz] TF-Remap: /tf,/tf_static -> /${NS}/tf,/${NS}/tf_static (CP_TF_REMAP=0 zum Abschalten)."
+fi
+
+# kinematics.yaml (KDL) fuer lokale IK des interaktiven Markers. Ohne sie gehen
+# trotzdem Joints-Tab, Update, Plan/Execute.
+exec ros2 run rviz2 rviz2 -d "$RVIZ_CFG" --ros-args "${TF_REMAP[@]}" "${PARAM_ARGS[@]}"

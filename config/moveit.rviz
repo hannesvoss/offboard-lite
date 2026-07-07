@@ -1,0 +1,98 @@
+# RViz-Config: MoveIt-MotionPlanning gegen das move_group des Roboters
+# (Namespace a200_0553). Alle roboterseitigen Topics/Actions sind auf
+# /a200_0553/... verdrahtet. Bei anderem Namespace setzt das moveit-rviz-Skript
+# die Pfade per sed um (oder CLEARPATH_NS anpassen).
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /MotionPlanning1
+      Splitter Ratio: 0.5
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 1
+      Plane Cell Count: 10
+      Color: 160; 160; 164
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Marker Scale: 0.5
+      Show Names: false
+      Show Axes: true
+    - Class: moveit_rviz_plugin/MotionPlanning
+      Name: MotionPlanning
+      Enabled: true
+      Move Group Namespace: /a200_0553
+      # WICHTIG: reiner Name (kein Pfad!). MoveIt baut daraus einen Hilfs-Node
+      # 'rviz_ssp_robot_description' und kombiniert mit "Move Group Namespace"
+      # zu Topic/Param /a200_0553/robot_description. Ein voller Pfad hier ergibt
+      # einen ungueltigen Node-Namen (Slash) -> Modell laedt nicht.
+      Robot Description: robot_description
+      MoveIt_Warehouse_Host: 127.0.0.1
+      MoveIt_Warehouse_Port: 33829
+      MoveIt_Use_Constraint_Aware_IK: false
+      MoveIt_Allow_Approximate_IK: true
+      MoveIt_Allow_External_Program: false
+      MoveIt_Planning_Time: 5
+      MoveIt_Planning_Attempts: 10
+      MoveIt_Velocity_Scaling_Factor: 0.1
+      MoveIt_Acceleration_Scaling_Factor: 0.1
+      Planning Scene Topic: /a200_0553/monitored_planning_scene
+      Scene Geometry:
+        Scene Alpha: 0.9
+        Show Scene Geometry: true
+      Scene Robot:
+        Robot Alpha: 0.5
+        Show Robot Collision: false
+        Show Robot Visual: true
+      Planning Request:
+        Colliding Link Color: 255; 0; 0
+        Planning Group: ""
+        Query Goal State: true
+        Query Start State: false
+        Show Workspace: false
+        Interactive Marker Size: 0.2
+      Planning Metrics:
+        Show Joint Torques: false
+        Show Weight Limit: false
+      Planned Path:
+        Loop Animation: false
+        Show Robot Collision: false
+        Show Robot Visual: true
+        Show Trail: false
+        State Display Time: 3x
+        Trajectory Topic: /a200_0553/display_planned_path
+        Interrupt Display: false
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: base_link
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/Measure
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 2.5
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0.3
+      Pitch: 0.4
+      Yaw: 0.8
+      Name: Current View
+Window Geometry:
+  Width: 1600
+  Height: 900
+  Displays:
+    collapsed: false
+  MotionPlanning:
+    collapsed: false
