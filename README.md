@@ -1,12 +1,9 @@
 # husky-offboard-lite
 
-Schlankes Offboard-Image (ROS 2 Jazzy), das sich **wie die LAN-Variante von
-`husky-offboard`** per Zenoh mit dem echten Roboter verbindet — aber **ohne den
-Clearpath-Overhead**. Einziger Zweck: **MoveIt in RViz öffnen** und das auf dem
+Schlankes Offboard-Image (ROS 2 Jazzy), das sich per Zenoh mit dem Husky verbindet.
+Einziger Zweck: **MoveIt in RViz öffnen** und das auf dem
 Roboter bereits laufende `move_group` grafisch bedienen (Plan & Execute für den
 UR5). RViz läuft im Browser (noVNC).
-
-Inspiriert von `../husky-offboard` (unangetastet), aber bewusst reduziert.
 
 ## Warum das ohne Clearpath-Stack funktioniert
 Auf dem Roboter ist `manipulators.moveit.enable: true` → **`move_group` läuft
@@ -27,22 +24,22 @@ Container muss also **kein** `move_group`, **keine** Clearpath-Generatoren,
 > Subscriber ausgeliefert (RViz sah ein leeres URDF → `XML_ERROR_EMPTY_DOCUMENT`).
 > Der Parameter-Service liefert das vom Roboter fertig berechnete Modell direkt.
 
-## Was drin ist (vs. husky-offboard)
-| | husky-offboard (LAN) | **husky-offboard-lite** |
-|---|---|---|
-| Zenoh-Anbindung an den Roboter | ✅ | ✅ |
-| noVNC-Desktop | ✅ | ✅ |
-| `clearpath-desktop` / `-simulator` (Gazebo, viz) | ✅ | ❌ |
-| Clearpath **`*-description`** (Meshes) | ✅ | ✅ (nur Descriptions) |
-| Clearpath-Generatoren + `robot.yaml`-Mount | ✅ | ❌ |
-| move_group **im Container** (remote-MoveIt) | ✅ (`cp-moveit`) | ❌ (nutzt das des Roboters) |
-| rg6-/UR-Treiber-Build, foxglove | ✅ | ❌ (nur `rg6_description`-Meshes) |
-| **RViz + MoveIt-MotionPlanning-Plugin** | ✅ | ✅ |
+## Was drin ist
+Feature | **husky-offboard-lite** |
+|---|---|
+| Zenoh-Anbindung an den Roboter | ✅ |
+| noVNC-Desktop | ✅ |
+| `clearpath-desktop` / `-simulator` (Gazebo, viz) | ❌ |
+| Clearpath **`*-description`** (Meshes) | ✅ (nur Descriptions) |
+| Clearpath-Generatoren + `robot.yaml`-Mount | ❌ |
+| move_group **im Container** (remote-MoveIt) | ❌ (nutzt das des Roboters) |
+| rg6-/UR-Treiber-Build, foxglove | ❌ (nur `rg6_description`-Meshes) |
+| **RViz + MoveIt-MotionPlanning-Plugin** | ✅ |
 
 Installiert werden: `rviz2`, `moveit-ros-visualization`, `moveit-kinematics`,
 `rmw-zenoh-cpp`, die `*-description`-Mesh-Pakete (UR5, Husky-Platform, Mounts,
 Sensors, Manipulators, RealSense) + `rg6_description` aus Source (Greifer) + der
-noVNC-Desktop. → kleiner als der volle `clearpath-desktop`/`-simulator`-Stack.
+noVNC-Desktop.
 
 ## Build & Run
 ```bash
@@ -130,11 +127,3 @@ Reihenfolge prüfen (im noVNC-xterm):
 - **Scaffold, nicht end-to-end hier validiert.** Die exakte Topic-/Frame-/
   Gruppen-Verdrahtung kann je nach Clearpath-Version einmalig anzupassen sein
   (siehe Checks oben).
-- **macOS:** noVNC, weil X11/OpenGL-Forwarding via XQuartz unzuverlässig ist.
-  Auf einem **Linux-Host** ginge stattdessen `network_mode: host` + `DISPLAY`/X11
-  ohne den noVNC-Umweg (dann `moveit-rviz` direkt gegen `$DISPLAY`).
-
-## Verwandtschaft
-`../husky-offboard` bleibt die vollständige Variante (remote-MoveIt im Container,
-Gazebo, Twin-Demo). Dieses Image ist die minimale „nur RViz-Ansicht"-Variante,
-wenn `move_group` schon auf dem Roboter läuft.
