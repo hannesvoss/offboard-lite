@@ -59,6 +59,27 @@ moveit-rviz
 `moveit-rviz` prüft kurz, ob `/a200_0553/move_group` im Graphen sichtbar ist,
 und startet dann RViz mit vorkonfiguriertem MotionPlanning-Panel.
 
+### Variante: direkt auf dem Roboter (`docker-compose.robot.yml`)
+Statt offboard vom Laptop kann derselbe Container **auf dem Roboter** laufen. Er
+teilt sich dann per `network_mode: host` den Netzwerk-Stack und nutzt den bereits
+laufenden Zenoh-Router des Roboters (`localhost:7447`) — **kein** eigener
+`rmw_zenohd`, **kein** `ROBOT_ZENOH_ENDPOINT` (`CP_ZENOH_LOCAL=1` erledigt das).
+```bash
+# auf dem Roboter bauen+starten (nativ x86_64!):
+docker compose -f docker-compose.robot.yml up --build
+# vom Laptop-Browser:
+#   http://<robot-ip>:6080/vnc.html  -> xterm -> moveit-rviz
+```
+Zu bedenken:
+- **CPU-Architektur:** auf dem **Roboter** bauen (x86_64). Ein auf Apple-Silicon
+  gebautes Image (arm64) läuft dort nicht ohne `docker buildx --platform linux/amd64`.
+- **Host-OS egal:** der Container bringt Jazzy selbst mit → läuft auch auf dem
+  Ubuntu-Server-22.04-Host, ohne ihn anzufassen.
+- **Last:** RViz rendert mit Software-GL (llvmpipe, CPU-hungrig) und konkurriert
+  mit `move_group`/Controllern/Perception. Nur bei Bedarf starten (kein Autostart),
+  damit die 125-Hz-Arm-Regelung nicht leidet. Übers Netz wandern dann VNC-Pixel
+  statt ROS-Daten.
+
 ## Einmalige Verdrahtungs-Checks (wichtig)
 Weil hier **nichts generiert** wird, hängt alles an den Live-Topics/-Frames des
 Roboters. Falls das Modell nicht erscheint oder das Panel leer bleibt, in dieser

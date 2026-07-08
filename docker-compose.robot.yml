@@ -1,0 +1,33 @@
+# Betrieb DIREKT AUF DEM ROBOTER (nicht offboard). Der Container teilt sich den
+# Netzwerk-Stack des Roboters (network_mode: host) und nutzt den dort bereits
+# laufenden Zenoh-Router auf localhost:7447 -> KEIN eigener rmw_zenohd, KEIN
+# ROBOT_ZENOH_ENDPOINT noetig.
+#
+# RViz laeuft weiter im virtuellen Desktop (Roboter ist headless) und ist per
+# noVNC erreichbar -> vom Laptop-Browser: http://<robot-ip>:6080/vnc.html
+# (mit host networking wird 6080 direkt auf dem Roboter exponiert, kein
+#  ports:-Mapping).
+#
+# WICHTIG - CPU-Architektur: dieses Compose auf dem ROBOTER bauen
+# (docker compose -f docker-compose.robot.yml build), damit das Image nativ zur
+# x86_64-CPU des Husky passt. Auf einem Apple-Silicon-Mac gebautes Image (arm64)
+# laeuft dort NICHT ohne cross-build (docker buildx --platform linux/amd64).
+#
+# WICHTIG - Last: RViz nutzt Software-GL (llvmpipe, CPU-hungrig) und konkurriert
+# mit move_group/Controllern/Perception. Nur bei Bedarf starten, nicht als
+# Autostart (restart: "no"), damit die Regelung (125-Hz-Arm) nicht leidet.
+#
+#   1) auf dem Roboter:  docker compose -f docker-compose.robot.yml up --build
+#   2) vom Laptop-Browser: http://<robot-ip>:6080/vnc.html -> xterm -> moveit-rviz
+services:
+  moveit-rviz:
+    build: .
+    image: husky-offboard-lite:jazzy
+    network_mode: host            # Netzwerk-Stack des Roboters -> Zenoh-Router localhost:7447
+    environment:
+      - RMW_IMPLEMENTATION=rmw_zenoh_cpp
+      - CP_ZENOH_LOCAL=1          # kein eigener Router; robot-lokalen nutzen
+      - ROS_DOMAIN_ID=0
+      - CLEARPATH_NS=a200_0553
+    # kein ports: -> host networking exponiert 6080 (noVNC) direkt auf dem Roboter
+    restart: "no"
