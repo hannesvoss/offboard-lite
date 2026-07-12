@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Wrapper: sourced ROS (+ rg6-Overlay) und startet den interaktiven
+# Posen-Teacher. Args werden durchgereicht (siehe teach_pose.py --help).
+#
+#   teach-pose                 # FreeDrive an, Posen teachen, poses:-Block ausgeben
+#   teach-pose -o /tmp/poses.yaml
+#   teach-pose --no-freedrive  # Arm anderweitig fuehren
+set -uo pipefail
+
+# ROS-Setup vertraegt kein nounset.
+set +u
+source /opt/ros/jazzy/setup.bash
+[ -f /opt/onrobot-rg6/install/setup.bash ] && source /opt/onrobot-rg6/install/setup.bash
+set -u
+
+export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_zenoh_cpp}"
+export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
+
+exec python3 /opt/teach_pose/teach_pose.py "$@"

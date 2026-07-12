@@ -64,6 +64,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         mesa-utils libgl1-mesa-dri \
     && rm -rf /var/lib/apt/lists/*
 
+# --- noVNC per Default mit lokalem Scaling ---------------------------------
+# noVNC liest den Resize-Modus aus dem URL-Parameter ?resize= (Werte: off/scale/
+# remote); ohne Parameter defaultet ui.js auf 'off' -> der Framebuffer wird 1:1
+# im Browser-Fenster gezeigt und bei kleinerem Viewport beschnitten. Wir setzen
+# den Default in app/ui.js ('off' -> 'scale'), sodass der Framebuffer lokal an
+# die Browser-Fenstergroesse skaliert wird, sobald man die Seite oeffnet. URL
+# (?resize=off|remote) und der Cookie-Override (Settings-Panel) haben weiter
+# Vorrang -> ein mal umgestellter User behaelt seine Wahl. Identisch zum
+# husky-offboard-Image.
+RUN sed -i "s/UI\.initSetting('resize', 'off')/UI.initSetting('resize', 'scale')/" \
+        /usr/share/novnc/app/ui.js \
+    && grep -q "UI.initSetting('resize', 'scale')" /usr/share/novnc/app/ui.js \
+    && echo "[novnc] resize-Default -> scale (lokales Scaling)"
+
 # --- rg6_description (Greifer-Meshes) aus Source ---------------------------
 # Kein apt-Paket. Nur rg6_description (Meshes) noetig, NICHT rg6_control (Treiber)
 # -> leichter als in husky-offboard. Aufloesung erfolgt spaeter per package://
@@ -74,17 +88,21 @@ RUN git clone "$RG6_REPO_URL" /opt/onrobot-rg6 \
     && colcon build --packages-select rg6_description \
     || echo "WARN: rg6_description-Build fehlgeschlagen -> Greifer bleibt ohne Mesh."
 
-# --- RViz-Config + Kinematik + Helferskript --------------------------------
+# --- RViz-Config + Kinematik + Helferskripte -------------------------------
 COPY config/ /opt/moveit_rviz/
-COPY moveit-rviz /usr/local/bin/moveit-rviz
+COPY scripts/moveit-rviz /usr/local/bin/moveit-rviz
+COPY scripts/teach-pose /usr/local/bin/teach-pose
+COPY scripts/teach_pose.py /opt/teach_pose/teach_pose.py
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh /usr/local/bin/moveit-rviz
+RUN chmod +x /entrypoint.sh /usr/local/bin/moveit-rviz /usr/local/bin/teach-pose
 
 ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp \
     ROS_DOMAIN_ID=0 \
     LIBGL_ALWAYS_SOFTWARE=1 \
     DISPLAY=:1 \
-    CLEARPATH_NS=a200_0553
+    CLEARPATH_NS=a200_0553 \
+    NOVNC_WIDTH=1600 \
+    NOVNC_HEIGHT=900
 
 EXPOSE 6080
 

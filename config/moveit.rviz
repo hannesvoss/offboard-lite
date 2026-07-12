@@ -94,8 +94,13 @@ Visualization Manager:
       Yaw: 0.8
       Name: Current View
 Window Geometry:
+  # Passt in den 1600x900-noVNC-Desktop (entrypoint.sh Xvfb, NOVNC_WIDTH/HEIGHT):
+  # Height = 900 - 20 fuer die Fluxbox-Titelleiste, X/Y=0 -> kein Beschnitt im
+  # Browser. noVNC defaultet zusaetzlich auf lokales Scaling (s. Dockerfile).
   Width: 1600
-  Height: 900
+  Height: 880
+  X: 0
+  Y: 0
   Displays:
     collapsed: false
   MotionPlanning:

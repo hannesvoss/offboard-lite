@@ -41,6 +41,75 @@ if command -v timeout >/dev/null 2>&1; then
         || echo "[moveit-rviz]   -> move_group noch nicht sichtbar (Zenoh/Netz? Roboter an?)."
 fi
 
+# --- Arm-Controller ggf. reaktivieren (nach husky-demo-imitate Graceful Shutdown)
+# husky-demo-imitate deaktiviert beim Beenden per 'release' den
+# arm_0_joint_trajectory_controller (JTC) und schaltet den Arm per 'power_off'
+# ab (Default GRACEFUL_SHUTDOWN=1, SHUTDOWN_POWER_OFF=1). MoveIt-Execute schlaegt
+# danach sofort mit 'Plan and Execute request aborted' fehl, weil der
+# Zielcontroller inaktiv ist. Hier stellen wir JTC + Arm-Versorgung idempotent
+# wieder her - aber NUR, falls der JTC gerade nicht aktiv ist. Am bereits
+# betriebsbereiten Roboter wird also nichts veraendert.
+# Abschaltbar: CP_JTC_REACTIVATE=0. Manipulators-Namespace per CP_MANIP_NS
+# (Default <NS>/manipulators), Controllername per CP_JTC_NAME.
+MANIP_NS="${CP_MANIP_NS:-${NS}/manipulators}"
+JTC="${CP_JTC_NAME:-arm_0_joint_trajectory_controller}"
+if [ "${CP_JTC_REACTIVATE:-1}" = "1" ]; then
+    echo "[moveit-rviz] pruefe Arm-Controller (mode/active) ..."
+    active_msg=""
+    if command -v timeout >/dev/null 2>&1; then
+        active_msg=$(timeout 10 ros2 service call \
+            "/${MANIP_NS}/ur_controller_mode_manager/active" \
+            std_srvs/srv/Trigger 2>/dev/null \
+            | sed -n 's/^ *message: //p' | head -n1)
+    else
+        active_msg=$(ros2 service call \
+            "/${MANIP_NS}/ur_controller_mode_manager/active" \
+            std_srvs/srv/Trigger 2>/dev/null \
+            | sed -n 's/^ *message: //p' | head -n1)
+    fi
+
+    case "$active_msg" in
+        *"$JTC"*)
+            echo "[moveit-rviz]   -> ${JTC} bereits aktiv (\"${active_msg}\"). Keine Reaktivierung noetig."
+            ;;
+        *)
+            echo "[moveit-rviz]   -> ${JTC} NICHT aktiv (\"${active_msg:-Antwort leer/Timeout}\"). Reaktiviere ..."
+            # 1) prepare: Arm bestromen + io_and_status_controller aktivieren.
+            echo "[moveit-rviz]   -> prepare (Arm bestromen) ..."
+            if command -v timeout >/dev/null 2>&1; then
+                timeout 30 ros2 service call \
+                    "/${MANIP_NS}/ur_state_manager/prepare" \
+                    std_srvs/srv/Trigger 2>/dev/null \
+                    && echo "[moveit-rviz]   -> prepare ok." \
+                    || echo "[moveit-rviz]   -> WARN: prepare fehlgeschlagen/Timeout (ur_state_manager sichtbar? Arm bestromt?)."
+            else
+                ros2 service call "/${MANIP_NS}/ur_state_manager/prepare" \
+                    std_srvs/srv/Trigger 2>/dev/null \
+                    && echo "[moveit-rviz]   -> prepare ok." \
+                    || echo "[moveit-rviz]   -> WARN: prepare fehlgeschlagen."
+            fi
+            # 2) mode/trajectory: JTC aktivieren (idempotent - aktiviert JTC,
+            #    deaktiviert sonstige Command-Controller der exklusiven Gruppe).
+            echo "[moveit-rviz]   -> mode/trajectory (JTC aktivieren) ..."
+            if command -v timeout >/dev/null 2>&1; then
+                timeout 20 ros2 service call \
+                    "/${MANIP_NS}/ur_controller_mode_manager/mode/trajectory" \
+                    std_srvs/srv/Trigger 2>/dev/null \
+                    && echo "[moveit-rviz]   -> mode/trajectory ok." \
+                    || echo "[moveit-rviz]   -> WARN: mode/trajectory fehlgeschlagen/Timeout (Execute geht ggf. nicht)."
+            else
+                ros2 service call \
+                    "/${MANIP_NS}/ur_controller_mode_manager/mode/trajectory" \
+                    std_srvs/srv/Trigger 2>/dev/null \
+                    && echo "[moveit-rviz]   -> mode/trajectory ok." \
+                    || echo "[moveit-rviz]   -> WARN: mode/trajectory fehlgeschlagen."
+            fi
+            ;;
+    esac
+else
+    echo "[moveit-rviz] CP_JTC_REACTIVATE=0 -> Arm-Controller-Reaktivierung uebersprungen."
+fi
+
 # --- URDF + SRDF vom laufenden Roboter holen und als LOKALE Params an RViz ---
 # Warum: RViz/MoveIt findet 'robot_description' weder als Parameter noch (ueber
 # die Zenoh-Bridge, transient_local) als String-Topic -> URDF ist leer ->

@@ -109,6 +109,61 @@ Reihenfolge prüfen (im noVNC-xterm):
    Schlüssel ergänzen (Neustart von `moveit-rviz`). Ohne lokale IK bleibt MoveIt
    trotzdem bedienbar: Tab **Joints**, **Update**, **Plan** & **Execute**.
 
+## Posen teachen für `robot.yaml` (`teach-pose`)
+Im noVNC-xterm liegt neben `moveit-rviz` das Skript **`teach-pose`**. Damit
+fährt man den UR5 **per FreeDrive** von Hand in eine Pose und bekommt die
+Gelenkwinkel im exakten YAML-Format, das `husky-custom-setup/robot.yaml` unter
+`manipulators.arms[].poses` erwartet — von dort werden sie beim nächsten
+Clearpath-Generatorlauf zu benannten **MoveIt-Group-States** (in RViz/MoveIt als
+Named-Position anwählbar).
+
+```bash
+teach-pose                    # FreeDrive an, dann Posen teachen
+teach-pose -o /tmp/poses.yaml # zusätzlich in Datei schreiben
+teach-pose --no-freedrive     # FreeDrive nicht selbst schalten
+```
+Ablauf im Prompt (`pose>`):
+- Arm von Hand in Position bringen, dann **Namen eintippen** (`home`,
+  `pick_ready`, …) → aktuelle Gelenkwinkel werden gemerkt.
+- `list` / `del <name>` / `now` (Rohwerte) / `save` (Block ausgeben) /
+  `quit` (oder Ctrl-D).
+- Beim Beenden wird **immer auf `mode/trajectory` (JTC) zurückgeschaltet**, damit
+  MoveIt-Execute wieder funktioniert.
+
+**Wie FreeDrive korrekt aktiviert wird** (sonst meldet der Mode-Manager „aktiv",
+der Arm bleibt aber steif): `teach-pose` macht dasselbe wie `husky-demo-imitate`:
+1. **`ur_state_manager/prepare`** — Arm bestromen, **Bremsen lösen**, RUNNING +
+   ExternalControl. Ohne laufendes ExternalControl erreicht der FreeDrive-URScript
+   den Arm nicht → Arm rührt sich nicht. (Abschaltbar mit `--no-prepare`.)
+2. **`mode/freedrive`** aktivieren **und dauerhaft `enable_freedrive_mode=true`**
+   (`std_msgs/Bool`, ~2 Hz) publishen — der `ur_controllers/FreedriveModeController`
+   fällt von selbst wieder ab, wenn kein `true` mehr kommt. `teach-pose` hält das
+   in einem Hintergrund-Thread (Rate über `--freedrive-rate`).
+
+`teach-pose` liest **`/<ns>/manipulators/joint_states`** (die Live-Arm-JSB-Quelle;
+auf a200-0553 verschiebt der custom-setup den Arm-Output dorthin,
+`platform/joint_states` ist nur ein Relay). Der Node **spinnt dauerhaft im
+Hintergrund**, damit die Werte beim Erfassen immer frisch sind. Die Gelenkauswahl
+erfolgt **nach Namen** (`arm_0_*`), nicht nach Array-Reihenfolge. Andere Quelle
+per `--joints-topic`. Voraussetzung: der Arm ist eingeschaltet (E-Stop frei) und
+der `arm_controllers.launch.py`-Stack (inkl. `freedrive_mode_controller`) +
+`ur_state_manager` laufen auf dem Roboter (auf a200-0553 als Boot-Service).
+Ausgabe dann unter dem UR5-Arm in `robot.yaml` einfügen und mit
+`generate_semantic_description` neu generieren (s. unten).
+
+**Troubleshooting: alle Posen kommen identisch heraus.** Dann hat sich der Arm
+physisch nicht bewegt (FreeDrive greift nicht) oder es wird eine tote Quelle
+gelesen. Test: nach dem Start `now` tippen, Arm von Hand schieben, wieder `now` —
+**die Zahlen müssen sich ändern**. Ändern sie sich nicht:
+- Bremsen/ExternalControl nicht aktiv → `prepare` schlug fehl (E-Stop frei? Arm
+  bestromt? Teach-Panel „External Control" running?).
+- In einem zweiten xterm gegenprüfen, welche Topic live ist:
+  `ros2 topic echo /<ns>/manipulators/joint_states --field position` vs
+  `ros2 topic echo /<ns>/platform/joint_states --field position` (Arm schieben).
+
+> **Achtung:** In FreeDrive kann der Arm durch die Schwerkraft leicht
+> nachsacken — beim Führen festhalten und den Arbeitsbereich frei halten.
+
 ## Bedienung in RViz
 - Panel **MotionPlanning** → Tab **Planning**: **Planning Group** wählen,
   **Query Goal State** setzen (Marker ziehen oder Joints-Tab), **Plan**,
