@@ -20,28 +20,10 @@ export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_zenoh_cpp}"
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
 
 # --- Zenoh-Router (verbindet zum Roboter) ----------------------------------
-# Zwei Betriebsarten:
-#  - OFFBOARD (Mac/LAN): ein lokaler rmw_zenohd verbindet sich zum Zenoh-Router
-#    des Roboters (ROBOT_ZENOH_ENDPOINT) -> Container joint dessen ROS-Graphen.
-#  - AUF DEM ROBOTER (ZENOH_LOCAL=1, network_mode: host): KEIN eigener Router.
-#    Der rmw_zenoh-Client (RViz) verbindet sich per Default mit dem bereits
-#    laufenden Router des Roboters auf localhost:7447. Ein zweiter Router wuerde
-#    dort nur mit Port 7447 kollidieren.
-if [ "${RMW_IMPLEMENTATION}" != "rmw_zenoh_cpp" ]; then
-    echo "[lite] RMW=${RMW_IMPLEMENTATION} (kein Zenoh) -> kein Router."
-elif [ "${ZENOH_LOCAL:-0}" = "1" ]; then
-    echo "[lite] nutze robot-lokalen Zenoh-Router (localhost:7447) -> kein eigener Router."
-elif [ -n "${ROBOT_ZENOH_ENDPOINT:-}" ]; then
-    cat > /tmp/router_config.json5 <<EOF
-{ mode: "router", connect: { endpoints: ["${ROBOT_ZENOH_ENDPOINT}"] } }
-EOF
-    export ZENOH_ROUTER_CONFIG_URI=/tmp/router_config.json5
-    echo "[lite] starte rmw_zenohd -> ${ROBOT_ZENOH_ENDPOINT}"
-    ros2 run rmw_zenoh_cpp rmw_zenohd >/tmp/zenohd.log 2>&1 &
-    sleep 3
-else
-    echo "[lite] WARN: ROBOT_ZENOH_ENDPOINT nicht gesetzt -> keine Verbindung zum Roboter."
-fi
+# Die Router-Logik (RMW-Check, ZENOH_LOCAL=1 auf dem Roboter,
+# ROBOT_ZENOH_ENDPOINT offboard) liegt EINMAL im Base-Image:
+# /usr/local/bin/zenoh-connect.sh (husky-offboard-base/scripts/).
+zenoh-connect.sh lite
 
 # --- noVNC-Desktop ---------------------------------------------------------
 # Gemeinsamer Desktop-Start (Xvfb/fluxbox/x11vnc/websockify) liegt im

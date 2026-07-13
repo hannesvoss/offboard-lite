@@ -65,7 +65,7 @@ noVNC-Desktop.
 # 1) ROBOT_ZENOH_ENDPOINT in docker-compose.lan.yml auf die LAN-IP:Port des
 #    Roboter-Zenoh-Routers setzen (Port ist standardmäßig 7447).
 # 2) starten:
-docker compose -f docker-compose.lan.yml up --build
+docker compose up --build
 # 3) Browser öffnen:
 #    http://localhost:6080/vnc.html
 # 4) im fluxbox-Desktop einen xterm öffnen (Rechtsklick -> Applications -> xterm)
@@ -82,7 +82,7 @@ laufenden Zenoh-Router des Roboters (`localhost:7447`) — **kein** eigener
 `rmw_zenohd`, **kein** `ROBOT_ZENOH_ENDPOINT` (`ZENOH_LOCAL=1` erledigt das).
 ```bash
 # auf dem Roboter bauen+starten (nativ x86_64!):
-docker compose -f docker-compose.robot.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.robot.yml up --build
 # vom Laptop-Browser:
 #   http://<robot-ip>:6080/vnc.html  -> xterm -> moveit-rviz
 ```

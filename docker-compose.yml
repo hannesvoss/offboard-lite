@@ -1,13 +1,13 @@
-# Verbindung wie die husky-offboard LAN-Variante, aber SCHLANK: nur RViz +
-# MoveIt-Plugin, kein Clearpath-Stack. Der Container joint per Zenoh den Graphen
-# des ECHTEN Roboters (RMW=zenoh, Entrypoint startet rmw_zenohd -> ROBOT_ZENOH_ENDPOINT)
-# und bedient das dort bereits laufende move_group grafisch.
+# husky-offboard-lite — BASIS-Compose (Default = offboard/LAN): nur RViz +
+# MoveIt-Plugin, kein Clearpath-Stack. Der Container joint per Zenoh den
+# Graphen des ECHTEN Roboters (Entrypoint startet rmw_zenohd ->
+# ROBOT_ZENOH_ENDPOINT) und bedient das dort laufende move_group grafisch.
 #
-#   1) ROBOT_ZENOH_ENDPOINT unten auf LAN-IP:Port des Roboter-Zenoh-Routers setzen
-#      (Standard-Port des rmw_zenohd ist 7447; IP = Roboter im LAN, z.B. 192.168.131.10
-#       am Roboter selbst, oder die vom Roboter genutzte LAN-IP).
-#   2) docker compose -f docker-compose.lan.yml up --build
-#   3) Browser: http://localhost:6080/vnc.html -> xterm -> moveit-rviz
+# Deploy-Ziele = Basis + kleines Override (statt Vollkopien):
+#   offboard/LAN:        docker compose up --build
+#   AUF dem Roboter:     docker compose -f docker-compose.yml -f docker-compose.robot.yml up --build
+#
+#   Browser: http://localhost:6080/vnc.html -> xterm -> moveit-rviz
 #
 # Hinweis: read-only. Es wird KEIN zweites move_group und KEINE zweite
 # /a200_0553/*-Quelle gestartet -> gefahrlos gegen den echten Roboter. Geplant
@@ -24,7 +24,7 @@ services:
     image: husky-offboard-lite:jazzy
     environment:
       - RMW_IMPLEMENTATION=rmw_zenoh_cpp
-      - ROBOT_ZENOH_ENDPOINT=tcp/10.42.42.159:7447   # <-- LAN-IP:Port des Roboter-Zenoh-Routers
+      - ROBOT_ZENOH_ENDPOINT=${ROBOT_ZENOH_ENDPOINT:-tcp/10.42.42.159:7447}   # LAN-IP:Port des Roboter-Zenoh-Routers
       - ROS_DOMAIN_ID=0
       - CLEARPATH_NS=a200_0553
     ports:
