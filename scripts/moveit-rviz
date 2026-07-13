@@ -49,11 +49,11 @@ fi
 # Zielcontroller inaktiv ist. Hier stellen wir JTC + Arm-Versorgung idempotent
 # wieder her - aber NUR, falls der JTC gerade nicht aktiv ist. Am bereits
 # betriebsbereiten Roboter wird also nichts veraendert.
-# Abschaltbar: CP_JTC_REACTIVATE=0. Manipulators-Namespace per CP_MANIP_NS
-# (Default <NS>/manipulators), Controllername per CP_JTC_NAME.
-MANIP_NS="${CP_MANIP_NS:-${NS}/manipulators}"
-JTC="${CP_JTC_NAME:-arm_0_joint_trajectory_controller}"
-if [ "${CP_JTC_REACTIVATE:-1}" = "1" ]; then
+# Abschaltbar: JTC_REACTIVATE=0. Manipulators-Namespace per MANIP_NS
+# (Default <NS>/manipulators), Controllername per JTC_NAME.
+MANIP_NS="${MANIP_NS:-${NS}/manipulators}"
+JTC="${JTC_NAME:-arm_0_joint_trajectory_controller}"
+if [ "${JTC_REACTIVATE:-1}" = "1" ]; then
     echo "[moveit-rviz] pruefe Arm-Controller (mode/active) ..."
     active_msg=""
     if command -v timeout >/dev/null 2>&1; then
@@ -107,7 +107,7 @@ if [ "${CP_JTC_REACTIVATE:-1}" = "1" ]; then
             ;;
     esac
 else
-    echo "[moveit-rviz] CP_JTC_REACTIVATE=0 -> Arm-Controller-Reaktivierung uebersprungen."
+    echo "[moveit-rviz] JTC_REACTIVATE=0 -> Arm-Controller-Reaktivierung uebersprungen."
 fi
 
 # --- URDF + SRDF vom laufenden Roboter holen und als LOKALE Params an RViz ---
@@ -116,10 +116,10 @@ fi
 # "XML_ERROR_EMPTY_DOCUMENT". Loesung ohne Clearpath-Generator: die vom Roboter
 # bereits berechneten URDF/SRDF einmalig per Parameter-Service ziehen und als
 # lokale Parameter uebergeben (declare_parameter nimmt den Override an -> Modell
-# laedt). Nodes sind autodiscovered; per Env ueberschreibbar (CP_RSP_NODE/CP_MG_NODE).
-RSP_NODE="${CP_RSP_NODE:-$(ros2 node list 2>/dev/null | grep -E 'robot_state_publisher$' | grep -F "/${NS}" | head -n1)}"
+# laedt). Nodes sind autodiscovered; per Env ueberschreibbar (RSP_NODE/MG_NODE).
+RSP_NODE="${RSP_NODE:-$(ros2 node list 2>/dev/null | grep -E 'robot_state_publisher$' | grep -F "/${NS}" | head -n1)}"
 [ -z "${RSP_NODE:-}" ] && RSP_NODE="/${NS}/robot_state_publisher"
-MG_NODE="${CP_MG_NODE:-$(ros2 node list 2>/dev/null | grep -E '/move_group$' | grep -F "/${NS}" | head -n1)}"
+MG_NODE="${MG_NODE:-$(ros2 node list 2>/dev/null | grep -E '/move_group$' | grep -F "/${NS}" | head -n1)}"
 [ -z "${MG_NODE:-}" ] && MG_NODE="/${NS}/move_group"
 
 # fetch_param NODE PARAM OUTFILE -> 0 bei nicht-leerem, plausiblem Wert
@@ -172,13 +172,13 @@ fi
 # im globalen Namespace und wuerde sonst /tf abonnieren -> "No tf data" -> ohne
 # TF kann MoveIt den aktuellen Zustand nicht aufloesen -> kein Planen.
 # Daher /tf + /tf_static auf den Roboter-Namespace remappen. Falls dein Setup TF
-# doch global publiziert: CP_TF_REMAP=0 moveit-rviz.
-TF_REMAP=()
-if [ "${CP_TF_REMAP:-1}" = "1" ]; then
-    TF_REMAP=(-r /tf:=/${NS}/tf -r /tf_static:=/${NS}/tf_static)
-    echo "[moveit-rviz] TF-Remap: /tf,/tf_static -> /${NS}/tf,/${NS}/tf_static (CP_TF_REMAP=0 zum Abschalten)."
+# doch global publiziert: TF_REMAP=0 moveit-rviz.
+TF_REMAP_ARGS=()
+if [ "${TF_REMAP:-1}" = "1" ]; then
+    TF_REMAP_ARGS=(-r /tf:=/${NS}/tf -r /tf_static:=/${NS}/tf_static)
+    echo "[moveit-rviz] TF-Remap: /tf,/tf_static -> /${NS}/tf,/${NS}/tf_static (TF_REMAP=0 zum Abschalten)."
 fi
 
 # kinematics.yaml (KDL) fuer lokale IK des interaktiven Markers. Ohne sie gehen
 # trotzdem Joints-Tab, Update, Plan/Execute.
-exec ros2 run rviz2 rviz2 -d "$RVIZ_CFG" --ros-args "${TF_REMAP[@]}" "${PARAM_ARGS[@]}"
+exec ros2 run rviz2 rviz2 -d "$RVIZ_CFG" --ros-args "${TF_REMAP_ARGS[@]}" "${PARAM_ARGS[@]}"

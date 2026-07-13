@@ -26,7 +26,7 @@ services:
     network_mode: host            # Netzwerk-Stack des Roboters -> Zenoh-Router localhost:7447
     environment:
       - RMW_IMPLEMENTATION=rmw_zenoh_cpp
-      - CP_ZENOH_LOCAL=1          # kein eigener Router; robot-lokalen nutzen
+      - ZENOH_LOCAL=1          # kein eigener Router; robot-lokalen nutzen
       - ROS_DOMAIN_ID=0
       - CLEARPATH_NS=a200_0553
     # kein ports: -> host networking exponiert 6080 (noVNC) direkt auf dem Roboter

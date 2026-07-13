@@ -60,7 +60,7 @@ und startet dann RViz mit vorkonfiguriertem MotionPlanning-Panel.
 Statt offboard vom Laptop kann derselbe Container **auf dem Roboter** laufen. Er
 teilt sich dann per `network_mode: host` den Netzwerk-Stack und nutzt den bereits
 laufenden Zenoh-Router des Roboters (`localhost:7447`) — **kein** eigener
-`rmw_zenohd`, **kein** `ROBOT_ZENOH_ENDPOINT` (`CP_ZENOH_LOCAL=1` erledigt das).
+`rmw_zenohd`, **kein** `ROBOT_ZENOH_ENDPOINT` (`ZENOH_LOCAL=1` erledigt das).
 ```bash
 # auf dem Roboter bauen+starten (nativ x86_64!):
 docker compose -f docker-compose.robot.yml up --build
@@ -91,12 +91,12 @@ Reihenfolge prüfen (im noVNC-xterm):
    ```
    Leer/Fehler → Zenoh/Netz: stimmt `ROBOT_ZENOH_ENDPOINT`? Roboter erreichbar
    (`ping`)? Läuft `rmw_zenohd` (`cat /tmp/zenohd.log`)? Heißen die Nodes anders,
-   per `CP_RSP_NODE=/... CP_MG_NODE=/... moveit-rviz` überschreiben.
+   per `RSP_NODE=/... MG_NODE=/... moveit-rviz` überschreiben.
 
 2. **TF-Namespace.** Clearpath publiziert TF **namespaced** (`/a200_0553/tf`,
    `/a200_0553/tf_static`). `moveit-rviz` remappt `/tf` + `/tf_static` daher
    standardmäßig dorthin — sonst „No tf data" und **kein Planen möglich**.
-   Publiziert dein Setup TF doch global, abschalten mit `CP_TF_REMAP=0 moveit-rviz`.
+   Publiziert dein Setup TF doch global, abschalten mit `TF_REMAP=0 moveit-rviz`.
    Bleibt das Modell „ohne Transform" stehen, `Fixed Frame` in RViz auf einen
    vorhandenen Frame stellen (z. B. `base_link` oder `arm_0_base_link`).
 

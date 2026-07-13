@@ -23,13 +23,13 @@ export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
 # Zwei Betriebsarten:
 #  - OFFBOARD (Mac/LAN): ein lokaler rmw_zenohd verbindet sich zum Zenoh-Router
 #    des Roboters (ROBOT_ZENOH_ENDPOINT) -> Container joint dessen ROS-Graphen.
-#  - AUF DEM ROBOTER (CP_ZENOH_LOCAL=1, network_mode: host): KEIN eigener Router.
+#  - AUF DEM ROBOTER (ZENOH_LOCAL=1, network_mode: host): KEIN eigener Router.
 #    Der rmw_zenoh-Client (RViz) verbindet sich per Default mit dem bereits
 #    laufenden Router des Roboters auf localhost:7447. Ein zweiter Router wuerde
 #    dort nur mit Port 7447 kollidieren.
 if [ "${RMW_IMPLEMENTATION}" != "rmw_zenoh_cpp" ]; then
     echo "[lite] RMW=${RMW_IMPLEMENTATION} (kein Zenoh) -> kein Router."
-elif [ "${CP_ZENOH_LOCAL:-0}" = "1" ]; then
+elif [ "${ZENOH_LOCAL:-0}" = "1" ]; then
     echo "[lite] nutze robot-lokalen Zenoh-Router (localhost:7447) -> kein eigener Router."
 elif [ -n "${ROBOT_ZENOH_ENDPOINT:-}" ]; then
     cat > /tmp/router_config.json5 <<EOF
