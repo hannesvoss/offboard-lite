@@ -44,22 +44,13 @@ else
 fi
 
 # --- noVNC-Desktop ---------------------------------------------------------
-export DISPLAY="${DISPLAY:-:1}"
-# NOVNC_WIDTH/NOVNC_HEIGHT (ENV im Dockerfile) sind die einzige Quelle fuer die
-# Desktop-Aufloesung. Die RViz-Config (config/moveit.rviz, Window Geometry
-# 1600x880 @0,0) ist auf diesen Default abgestimmt (Height -20 fuer die
-# Fluxbox-Titelleiste) -> kein Beschnitt im Browser. noVNC defaultet auf lokales
-# Scaling (s. Dockerfile).
-export NOVNC_WIDTH="${NOVNC_WIDTH:-1600}"
-export NOVNC_HEIGHT="${NOVNC_HEIGHT:-900}"
-echo "[lite] starte virtuellen Desktop auf ${DISPLAY} (noVNC :6080, ${NOVNC_WIDTH}x${NOVNC_HEIGHT})"
-Xvfb "${DISPLAY}" -screen 0 "${NOVNC_WIDTH}x${NOVNC_HEIGHT}x24" -ac >/tmp/xvfb.log 2>&1 &
-sleep 1
-fluxbox >/tmp/fluxbox.log 2>&1 &
-x11vnc -display "${DISPLAY}" -nopw -forever -shared -rfbport 5900 -bg -quiet \
-    >/tmp/x11vnc.log 2>&1 || true
-websockify --web=/usr/share/novnc 6080 localhost:5900 >/tmp/novnc.log 2>&1 &
-echo "[lite] Desktop bereit: http://localhost:6080/vnc.html"
+# Gemeinsamer Desktop-Start (Xvfb/fluxbox/x11vnc/websockify) liegt im
+# husky-offboard-base-Image als /usr/local/bin/start-desktop.sh; nimmt
+# DISPLAY/NOVNC_WIDTH/NOVNC_HEIGHT aus dem Environment (Base-ENV-Defaults).
+# Die RViz-Config (config/moveit.rviz, Window Geometry 1600x880 @0,0) ist auf
+# diesen Default abgestimmt (Height -20 fuer die Fluxbox-Titelleiste) -> kein
+# Beschnitt im Browser. noVNC defaultet auf lokales Scaling (s. Base-Dockerfile).
+start-desktop.sh lite
 
 echo "[lite] bereit. Im noVNC-Terminal: moveit-rviz  |  teach-pose (Posen per FreeDrive)"
 exec "$@"

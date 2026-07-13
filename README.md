@@ -5,6 +5,25 @@ Einziger Zweck: **MoveIt in RViz öffnen** und das auf dem
 Roboter bereits laufende `move_group` grafisch bedienen (Plan & Execute für den
 UR5). RViz läuft im Browser (noVNC).
 
+## Basis-Image
+Dieses Image baut auf dem gemeinsamen [`husky-offboard-base`](https://github.com/CLAIRLab-HAW/husky-offboard-base)
+auf (Clearpath apt-Repo, noVNC/Desktop-Stack, noVNC-Scaling-Patch,
+`rg6_description`-Build, `/usr/local/bin/start-desktop.sh`, gemeinsame ENV-Defaults).
+Im Dockerfile:
+```dockerfile
+ARG BASE_IMAGE=ghcr.io/clairlab-haw/husky-offboard-base:jazzy
+FROM ${BASE_IMAGE}
+```
+Default ist das **GHCR-Image** (ein Base-Build, überall gecacht). Für einen
+lokalen Build ohne Registry-Pull die Base vorher selbst bauen
+(`../husky-offboard-base`) und `BASE_IMAGE` überschreiben:
+```bash
+docker compose -f docker-compose.lan.yml build \
+  --build-arg BASE_IMAGE=husky-offboard-base:jazzy
+# oder:  export BASE_IMAGE=husky-offboard-base:jazzy  (Compose-Default greift)
+```
+Für reproduzierbare Builds den Base-Digest pinnen (`FROM ...@sha256:...`).
+
 ## Warum das ohne Clearpath-Stack funktioniert
 Auf dem Roboter ist `manipulators.moveit.enable: true` → **`move_group` läuft
 dort** und stellt bereit:

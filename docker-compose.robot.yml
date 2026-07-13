@@ -21,7 +21,12 @@
 #   2) vom Laptop-Browser: http://<robot-ip>:6080/vnc.html -> xterm -> moveit-rviz
 services:
   moveit-rviz:
-    build: .
+    build:
+      context: .
+      # Gemeinsames Basis-Image (siehe ../husky-offboard-base). Default = GHCR;
+      # lokal mit  BASE_IMAGE=husky-offboard-base:jazzy  ueberschreibbar.
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-ghcr.io/clairlab-haw/husky-offboard-base:jazzy}
     image: husky-offboard-lite:jazzy
     network_mode: host            # Netzwerk-Stack des Roboters -> Zenoh-Router localhost:7447
     environment:
