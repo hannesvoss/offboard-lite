@@ -1,203 +1,203 @@
 # husky-offboard-lite
 
-Schlankes Offboard-Image (ROS 2 Jazzy), das sich per Zenoh mit dem Husky verbindet.
-Einziger Zweck: **MoveIt in RViz öffnen** und das auf dem
-Roboter bereits laufende `move_group` grafisch bedienen (Plan & Execute für den
-UR5). RViz läuft im Browser (noVNC).
+Lean offboard image (ROS 2 Jazzy) that connects to the Husky via Zenoh.
+Its sole purpose: **open MoveIt in RViz** and graphically operate the
+`move_group` already running on the robot (Plan & Execute for the
+UR5). RViz runs in the browser (noVNC).
 
-## Basis-Image
-Dieses Image baut auf dem gemeinsamen [`husky-offboard-base`](https://github.com/CLAIRLab-HAW/husky-offboard-base)
-auf (Clearpath apt-Repo, noVNC/Desktop-Stack, noVNC-Scaling-Patch,
-`rg6_description`-Build, `/usr/local/bin/start-desktop.sh`, gemeinsame ENV-Defaults).
-Im Dockerfile:
+## Base image
+This image builds on the shared [`husky-offboard-base`](https://github.com/CLAIRLab-HAW/husky-offboard-base)
+(Clearpath apt repo, noVNC/desktop stack, noVNC scaling patch,
+`rg6_description` build, `/usr/local/bin/start-desktop.sh`, shared ENV defaults).
+In the Dockerfile:
 ```dockerfile
 ARG BASE_IMAGE=ghcr.io/clairlab-haw/husky-offboard-base:jazzy
 FROM ${BASE_IMAGE}
 ```
-Default ist das **GHCR-Image** (ein Base-Build, überall gecacht). Für einen
-lokalen Build ohne Registry-Pull die Base vorher selbst bauen
-(`../husky-offboard-base`) und `BASE_IMAGE` überschreiben:
+The default is the **GHCR image** (a base build, cached everywhere). For a
+local build without a registry pull, build the base yourself first
+(`../husky-offboard-base`) and override `BASE_IMAGE`:
 ```bash
 docker compose -f docker-compose.lan.yml build \
   --build-arg BASE_IMAGE=husky-offboard-base:jazzy
-# oder:  export BASE_IMAGE=husky-offboard-base:jazzy  (Compose-Default greift)
+# or:  export BASE_IMAGE=husky-offboard-base:jazzy  (compose default takes effect)
 ```
-Für reproduzierbare Builds den Base-Digest pinnen (`FROM ...@sha256:...`).
+For reproducible builds, pin the base digest (`FROM ...@sha256:...`).
 
-## Warum das ohne Clearpath-Stack funktioniert
-Auf dem Roboter ist `manipulators.moveit.enable: true` → **`move_group` läuft
-dort** und stellt bereit:
-- `/a200_0553/robot_description` (URDF, vom `robot_state_publisher`)
-- `/a200_0553/robot_description_semantic` (SRDF, vom `move_group`)
-- die `/a200_0553/move_action`-Action + Planning-Scene-Topics
+## Why this works without the Clearpath stack
+On the robot, `manipulators.moveit.enable: true` → **`move_group` runs
+there** and provides:
+- `/a200_0553/robot_description` (URDF, from `robot_state_publisher`)
+- `/a200_0553/robot_description_semantic` (SRDF, from `move_group`)
+- the `/a200_0553/move_action` action + planning scene topics
 
-Das `moveit-rviz`-Skript **zieht URDF + SRDF beim Start per Parameter-Service**
-vom Roboter (`robot_state_publisher.robot_description` +
-`move_group.robot_description_semantic`) und gibt sie als lokale Parameter an
-RViz. Planungs-Goals gehen an das `move_group` des Roboters (`move_action`). Der
-Container muss also **kein** `move_group`, **keine** Clearpath-Generatoren,
-**kein** `robot.yaml` und **kein** Gazebo mitbringen.
+The `moveit-rviz` script **pulls URDF + SRDF at startup via the parameter service**
+from the robot (`robot_state_publisher.robot_description` +
+`move_group.robot_description_semantic`) and passes them to RViz as local
+parameters. Planning goals go to the robot's `move_group` (`move_action`). So the
+container does **not** need to bring its own `move_group`, **no** Clearpath
+generators, **no** `robot.yaml`, and **no** Gazebo.
 
-> Warum Param-Service statt Live-Topic: die gelatchte `robot_description`-String-
-> Topic wird über die Zenoh-Bridge nicht zuverlässig an spät verbundene
-> Subscriber ausgeliefert (RViz sah ein leeres URDF → `XML_ERROR_EMPTY_DOCUMENT`).
-> Der Parameter-Service liefert das vom Roboter fertig berechnete Modell direkt.
+> Why the parameter service instead of a live topic: the latched `robot_description`
+> string topic is not reliably delivered to late-joining subscribers across the
+> Zenoh bridge (RViz saw an empty URDF → `XML_ERROR_EMPTY_DOCUMENT`).
+> The parameter service delivers the model already computed on the robot directly.
 
-## Was drin ist
+## What's inside
 Feature | **husky-offboard-lite** |
 |---|---|
-| Zenoh-Anbindung an den Roboter | ✅ |
-| noVNC-Desktop | ✅ |
+| Zenoh connection to the robot | ✅ |
+| noVNC desktop | ✅ |
 | `clearpath-desktop` / `-simulator` (Gazebo, viz) | ❌ |
-| Clearpath **`*-description`** (Meshes) | ✅ (nur Descriptions) |
-| Clearpath-Generatoren + `robot.yaml`-Mount | ❌ |
-| move_group **im Container** (remote-MoveIt) | ❌ (nutzt das des Roboters) |
-| rg6-/UR-Treiber-Build, foxglove | ❌ (nur `rg6_description`-Meshes) |
-| **RViz + MoveIt-MotionPlanning-Plugin** | ✅ |
+| Clearpath **`*-description`** (meshes) | ✅ (descriptions only) |
+| Clearpath generators + `robot.yaml` mount | ❌ |
+| move_group **in the container** (remote MoveIt) | ❌ (uses the robot's) |
+| rg6/UR driver build, foxglove | ❌ (only `rg6_description` meshes) |
+| **RViz + MoveIt MotionPlanning plugin** | ✅ |
 
-Installiert werden: `rviz2`, `moveit-ros-visualization`, `moveit-kinematics`,
-`rmw-zenoh-cpp`, die `*-description`-Mesh-Pakete (UR5, Husky-Platform, Mounts,
-Sensors, Manipulators, RealSense) + `rg6_description` aus Source (Greifer) + der
-noVNC-Desktop.
+Installed: `rviz2`, `moveit-ros-visualization`, `moveit-kinematics`,
+`rmw-zenoh-cpp`, the `*-description` mesh packages (UR5, Husky platform, mounts,
+sensors, manipulators, RealSense) + `rg6_description` from source (gripper) + the
+noVNC desktop.
 
 ## Build & Run
 ```bash
-# 1) ROBOT_ZENOH_ENDPOINT in docker-compose.lan.yml auf die LAN-IP:Port des
-#    Roboter-Zenoh-Routers setzen (Port ist standardmäßig 7447).
-# 2) starten:
+# 1) Set ROBOT_ZENOH_ENDPOINT in docker-compose.lan.yml to the robot's
+#    LAN IP:Port (port defaults to 7447).
+# 2) start:
 docker compose up --build
-# 3) Browser öffnen:
+# 3) open in browser:
 #    http://localhost:6080/vnc.html
-# 4) im fluxbox-Desktop einen xterm öffnen (Rechtsklick -> Applications -> xterm)
-#    und ausführen:
+# 4) in the fluxbox desktop open an xterm (right-click -> Applications -> xterm)
+#    and run:
 moveit-rviz
 ```
-`moveit-rviz` prüft kurz, ob `/a200_0553/move_group` im Graphen sichtbar ist,
-und startet dann RViz mit vorkonfiguriertem MotionPlanning-Panel.
+`moveit-rviz` briefly checks whether `/a200_0553/move_group` is visible in the
+graph, then starts RViz with a preconfigured MotionPlanning panel.
 
-### Variante: direkt auf dem Roboter (`docker-compose.robot.yml`)
-Statt offboard vom Laptop kann derselbe Container **auf dem Roboter** laufen. Er
-teilt sich dann per `network_mode: host` den Netzwerk-Stack und nutzt den bereits
-laufenden Zenoh-Router des Roboters (`localhost:7447`) — **kein** eigener
-`rmw_zenohd`, **kein** `ROBOT_ZENOH_ENDPOINT` (`ZENOH_LOCAL=1` erledigt das).
+### Variant: directly on the robot (`docker-compose.robot.yml`)
+Instead of offboard from the laptop, the same container can run **on the robot**.
+It then shares the network stack via `network_mode: host` and uses the robot's
+already-running Zenoh router (`localhost:7447`) — **no** own
+`rmw_zenohd`, **no** `ROBOT_ZENOH_ENDPOINT` (`ZENOH_LOCAL=1` handles that).
 ```bash
-# auf dem Roboter bauen+starten (nativ x86_64!):
+# build+start on the robot (native x86_64!):
 docker compose -f docker-compose.yml -f docker-compose.robot.yml up --build
-# vom Laptop-Browser:
+# from the laptop browser:
 #   http://<robot-ip>:6080/vnc.html  -> xterm -> moveit-rviz
 ```
-Zu bedenken:
-- **CPU-Architektur:** auf dem **Roboter** bauen (x86_64). Ein auf Apple-Silicon
-  gebautes Image (arm64) läuft dort nicht ohne `docker buildx --platform linux/amd64`.
-- **Host-OS egal:** der Container bringt Jazzy selbst mit → läuft auch auf dem
-  Ubuntu-Server-22.04-Host, ohne ihn anzufassen.
-- **Last:** RViz rendert mit Software-GL (llvmpipe, CPU-hungrig) und konkurriert
-  mit `move_group`/Controllern/Perception. Nur bei Bedarf starten (kein Autostart),
-  damit die 125-Hz-Arm-Regelung nicht leidet. Übers Netz wandern dann VNC-Pixel
-  statt ROS-Daten.
+Things to keep in mind:
+- **CPU architecture:** build on the **robot** (x86_64). An image built on Apple
+  Silicon (arm64) won't run there without `docker buildx --platform linux/amd64`.
+- **Host OS doesn't matter:** the container brings Jazzy itself → it also runs on
+  the Ubuntu Server 22.04 host without touching it.
+- **Load:** RViz renders with software GL (llvmpipe, CPU-hungry) and competes
+  with `move_group`/controllers/perception. Start it only when needed (no
+  autostart), so the 125 Hz arm control loop doesn't suffer. Over the network,
+  VNC pixels travel instead of ROS data.
 
-## Einmalige Verdrahtungs-Checks (wichtig)
-Weil hier **nichts generiert** wird, hängt alles an den Live-Topics/-Frames des
-Roboters. Falls das Modell nicht erscheint oder das Panel leer bleibt, in dieser
-Reihenfolge prüfen (im noVNC-xterm):
+## One-time wiring checks (important)
+Because **nothing is generated** here, everything depends on the robot's live
+topics/frames. If the model doesn't appear or the panel stays empty, check in
+this order (in the noVNC xterm):
 
-1. **Graph + Modell-Parameter sichtbar?** `moveit-rviz` holt URDF/SRDF per
-   Parameter-Service. Manuell prüfen:
+1. **Graph + model parameters visible?** `moveit-rviz` fetches URDF/SRDF via the
+   parameter service. Check manually:
    ```bash
-   ros2 node list | grep -E 'move_group|robot_state_publisher'   # richtige Node-Namen?
+   ros2 node list | grep -E 'move_group|robot_state_publisher'   # correct node names?
    ros2 param get /a200_0553/robot_state_publisher robot_description | head -c 120
    ros2 param get /a200_0553/move_group robot_description_semantic | head -c 120
    ```
-   Leer/Fehler → Zenoh/Netz: stimmt `ROBOT_ZENOH_ENDPOINT`? Roboter erreichbar
-   (`ping`)? Läuft `rmw_zenohd` (`cat /tmp/zenohd.log`)? Heißen die Nodes anders,
-   per `RSP_NODE=/... MG_NODE=/... moveit-rviz` überschreiben.
+   Empty/error → Zenoh/network: is `ROBOT_ZENOH_ENDPOINT` correct? Is the robot
+   reachable (`ping`)? Is `rmw_zenohd` running (`cat /tmp/zenohd.log`)? If the
+   nodes are named differently, override via `RSP_NODE=/... MG_NODE=/... moveit-rviz`.
 
-2. **TF-Namespace.** Clearpath publiziert TF **namespaced** (`/a200_0553/tf`,
-   `/a200_0553/tf_static`). `moveit-rviz` remappt `/tf` + `/tf_static` daher
-   standardmäßig dorthin — sonst „No tf data" und **kein Planen möglich**.
-   Publiziert dein Setup TF doch global, abschalten mit `TF_REMAP=0 moveit-rviz`.
-   Bleibt das Modell „ohne Transform" stehen, `Fixed Frame` in RViz auf einen
-   vorhandenen Frame stellen (z. B. `base_link` oder `arm_0_base_link`).
+2. **TF namespace.** Clearpath publishes TF **namespaced** (`/a200_0553/tf`,
+   `/a200_0553/tf_static`). `moveit-rviz` therefore remaps `/tf` + `/tf_static`
+   there by default — otherwise "No tf data" and **no planning possible**.
+   If your setup does publish TF globally, disable it with `TF_REMAP=0 moveit-rviz`.
+   If the model stays "without transform", set `Fixed Frame` in RViz to an
+   existing frame (e.g. `base_link` or `arm_0_base_link`).
 
-3. **Planungsgruppen-Name** (nur für den interaktiven Ziehmarker). Der echte
-   Name steht im SRDF:
+3. **Planning group name** (only for the interactive drag marker). The real name
+   is in the SRDF:
    ```bash
    ros2 topic echo /a200_0553/robot_description_semantic --once | grep '<group '
    ```
-   Ist er nicht in `config/kinematics.yaml` enthalten, dort als weiteren
-   Schlüssel ergänzen (Neustart von `moveit-rviz`). Ohne lokale IK bleibt MoveIt
-   trotzdem bedienbar: Tab **Joints**, **Update**, **Plan** & **Execute**.
+   If it's not in `config/kinematics.yaml`, add it there as another key (restart
+   `moveit-rviz`). Without local IK, MoveIt is still usable: Tab **Joints**,
+   **Update**, **Plan** & **Execute**.
 
-## Posen teachen für `robot.yaml` (`teach-pose`)
-Im noVNC-xterm liegt neben `moveit-rviz` das Skript **`teach-pose`**. Damit
-fährt man den UR5 **per FreeDrive** von Hand in eine Pose und bekommt die
-Gelenkwinkel im exakten YAML-Format, das `husky-custom-setup/robot.yaml` unter
-`manipulators.arms[].poses` erwartet — von dort werden sie beim nächsten
-Clearpath-Generatorlauf zu benannten **MoveIt-Group-States** (in RViz/MoveIt als
-Named-Position anwählbar).
+## Teaching poses for `robot.yaml` (`teach-pose`)
+In the noVNC xterm, alongside `moveit-rviz`, there's the script **`teach-pose`**.
+With it you drive the UR5 **via FreeDrive** by hand into a pose and get the joint
+angles in the exact YAML format that `husky-custom-setup/robot.yaml` expects under
+`manipulators.arms[].poses` — from there they become named **MoveIt group states**
+on the next Clearpath generator run (selectable in RViz/MoveIt as a named
+position).
 
 ```bash
-teach-pose                    # FreeDrive an, dann Posen teachen
-teach-pose -o /tmp/poses.yaml # zusätzlich in Datei schreiben
-teach-pose --no-freedrive     # FreeDrive nicht selbst schalten
+teach-pose                    # FreeDrive on, then teach poses
+teach-pose -o /tmp/poses.yaml # also write to a file
+teach-pose --no-freedrive     # don't toggle FreeDrive itself
 ```
-Ablauf im Prompt (`pose>`):
-- Arm von Hand in Position bringen, dann **Namen eintippen** (`home`,
-  `pick_ready`, …) → aktuelle Gelenkwinkel werden gemerkt.
-- `list` / `del <name>` / `now` (Rohwerte) / `save` (Block ausgeben) /
-  `quit` (oder Ctrl-D).
-- Beim Beenden wird **immer auf `mode/trajectory` (JTC) zurückgeschaltet**, damit
-  MoveIt-Execute wieder funktioniert.
+Flow at the prompt (`pose>`):
+- Move the arm into position by hand, then **type a name** (`home`,
+  `pick_ready`, …) → current joint angles are recorded.
+- `list` / `del <name>` / `now` (raw values) / `save` (print block) /
+  `quit` (or Ctrl-D).
+- On exit it **always switches back to `mode/trajectory` (JTC)** so that
+  MoveIt Execute works again.
 
-**Wie FreeDrive korrekt aktiviert wird** (sonst meldet der Mode-Manager „aktiv",
-der Arm bleibt aber steif): `teach-pose` macht dasselbe wie `husky-demo-imitate`:
-1. **`ur_state_manager/prepare`** — Arm bestromen, **Bremsen lösen**, RUNNING +
-   ExternalControl. Ohne laufendes ExternalControl erreicht der FreeDrive-URScript
-   den Arm nicht → Arm rührt sich nicht. (Abschaltbar mit `--no-prepare`.)
-2. **`mode/freedrive`** aktivieren **und dauerhaft `enable_freedrive_mode=true`**
-   (`std_msgs/Bool`, ~2 Hz) publishen — der `ur_controllers/FreedriveModeController`
-   fällt von selbst wieder ab, wenn kein `true` mehr kommt. `teach-pose` hält das
-   in einem Hintergrund-Thread (Rate über `--freedrive-rate`).
+**How FreeDrive is correctly activated** (otherwise the mode manager reports
+"active" but the arm stays stiff): `teach-pose` does the same as `husky-demo-imitate`:
+1. **`ur_state_manager/prepare`** — power on the arm, **release brakes**, RUNNING +
+   ExternalControl. Without ExternalControl running, the FreeDrive URScript
+   never reaches the arm → arm doesn't move. (Dismissible with `--no-prepare`.)
+2. Activate **`mode/freedrive`** and continuously publish `enable_freedrive_mode=true`
+   (`std_msgs/Bool`, ~2 Hz) — the `ur_controllers/FreedriveModeController`
+   drops out on its own when no more `true` arrives. `teach-pose` keeps this
+   going in a background thread (rate via `--freedrive-rate`).
 
-`teach-pose` liest **`/<ns>/manipulators/joint_states`** (die Live-Arm-JSB-Quelle;
-auf a200-0553 verschiebt der custom-setup den Arm-Output dorthin,
-`platform/joint_states` ist nur ein Relay). Der Node **spinnt dauerhaft im
-Hintergrund**, damit die Werte beim Erfassen immer frisch sind. Die Gelenkauswahl
-erfolgt **nach Namen** (`arm_0_*`), nicht nach Array-Reihenfolge. Andere Quelle
-per `--joints-topic`. Voraussetzung: der Arm ist eingeschaltet (E-Stop frei) und
-der `arm_controllers.launch.py`-Stack (inkl. `freedrive_mode_controller`) +
-`ur_state_manager` laufen auf dem Roboter (auf a200-0553 als Boot-Service).
-Ausgabe dann unter dem UR5-Arm in `robot.yaml` einfügen und mit
-`generate_semantic_description` neu generieren (s. unten).
+`teach-pose` reads **`/<ns>/manipulators/joint_states`** (the live arm JSB source;
+on a200-0553 the custom-setup moves the arm output there,
+`platform/joint_states` is only a relay). The node **spins continuously in the
+background** so the values are always fresh when capturing. Joint selection is
+**by name** (`arm_0_*`), not by array order. Use another source via
+`--joints-topic`. Prerequisite: the arm is powered on (E-Stop released) and the
+`arm_controllers.launch.py` stack (incl. `freedrive_mode_controller`) +
+`ur_state_manager` are running on the robot (on a200-0553 as a boot service).
+Then insert the output under the UR5 arm in `robot.yaml` and regenerate with
+`generate_semantic_description` (see below).
 
-**Troubleshooting: alle Posen kommen identisch heraus.** Dann hat sich der Arm
-physisch nicht bewegt (FreeDrive greift nicht) oder es wird eine tote Quelle
-gelesen. Test: nach dem Start `now` tippen, Arm von Hand schieben, wieder `now` —
-**die Zahlen müssen sich ändern**. Ändern sie sich nicht:
-- Bremsen/ExternalControl nicht aktiv → `prepare` schlug fehl (E-Stop frei? Arm
-  bestromt? Teach-Panel „External Control" running?).
-- In einem zweiten xterm gegenprüfen, welche Topic live ist:
+**Troubleshooting: all poses come out identical.** Then the arm didn't physically
+move (FreeDrive isn't engaging) or a dead source is being read. Test: after
+startup type `now`, push the arm by hand, type `now` again — **the numbers must
+change**. If they don't:
+- Brakes/ExternalControl not active → `prepare` failed (E-Stop released? Arm
+  powered? Teach panel "External Control" running?).
+- Cross-check in a second xterm which topic is live:
   `ros2 topic echo /<ns>/manipulators/joint_states --field position` vs
-  `ros2 topic echo /<ns>/platform/joint_states --field position` (Arm schieben).
+  `ros2 topic echo /<ns>/platform/joint_states --field position` (push the arm).
 
-> **Achtung:** In FreeDrive kann der Arm durch die Schwerkraft leicht
-> nachsacken — beim Führen festhalten und den Arbeitsbereich frei halten.
+> **Caution:** In FreeDrive the arm may sag slightly under gravity — hold on to
+> it while guiding and keep the workspace clear.
 
-## Bedienung in RViz
-- Panel **MotionPlanning** → Tab **Planning**: **Planning Group** wählen,
-  **Query Goal State** setzen (Marker ziehen oder Joints-Tab), **Plan**,
-  dann **Execute**.
-- **Execute bewegt den ECHTEN Arm** (wie jede MoveIt-Bedienung) — nur bei
-  freiem Arbeitsbereich. Zum reinen Angucken bei **Plan** stehen bleiben.
+## Operating in RViz
+- Panel **Motion Planning** → Tab **Planning**: select **Planning Group**, set
+  **Query Goal State** (drag the marker or use the Joints tab), **Plan**,
+  then **Execute**.
+- **Execute moves the REAL arm** (as does any MoveIt operation) — only with a
+  clear workspace. To just look, stop at **Plan**.
 
-## Caveats (bitte lesen)
-- **Software-GL (llvmpipe)** → RViz funktioniert, ist aber langsam. Für
-  Inspektion/Planung ok.
-- **Geometrie wird gerendert** (UR5, Husky-Basis, Mounts, Sensoren, RealSense via
-  apt-`*-description`; Greifer via `rg6_description` aus Source). Fehlt bei einem
-  `package://` doch ein Mesh (`Could not load resource ...`), fehlt das jeweilige
-  Description-Paket — dann im Dockerfile ergänzen. Kollisionsprüfung/Planung macht
-  ohnehin das `move_group` des Roboters.
-- **Scaffold, nicht end-to-end hier validiert.** Die exakte Topic-/Frame-/
-  Gruppen-Verdrahtung kann je nach Clearpath-Version einmalig anzupassen sein
-  (siehe Checks oben).
+## Caveats (please read)
+- **Software GL (llvmpipe)** → RViz works but is slow. Fine for
+  inspection/planning.
+- **Geometry is rendered** (UR5, Husky base, mounts, sensors, RealSense via
+  apt-`*-description`; gripper via `rg6_description` from source). If a mesh is
+  still missing for a `package://` (`Could not load resource ...`), the respective
+  description package is missing — add it in the Dockerfile. Collision
+  checking/planning is done by the robot's `move_group` anyway.
+- **Scaffold, not end-to-end validated here.** The exact topic/frame/group wiring
+  may need a one-time adjustment depending on the Clearpath version (see the
+  checks above).
