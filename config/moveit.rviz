@@ -72,7 +72,11 @@ Visualization Manager:
         Interrupt Display: false
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base_link
+    # base_footprint = Bodenprojektion unter dem Roboter (URDF-Kette
+    # base_link -> base_footprint, z=-0.13228): das Grid liegt damit auf dem
+    # realen Boden und der Husky steht AUF dem Grid statt halb darin
+    # (base_link sitzt 13 cm ueber dem Boden an der Chassis-Unterkante).
+    Fixed Frame: base_footprint
     Frame Rate: 30
   Tools:
     # Interact MUSS dabei sein (und aktiv), sonst lassen sich die interaktiven
