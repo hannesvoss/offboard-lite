@@ -18,7 +18,7 @@ The default is the **GHCR image** (a base build, cached everywhere). For a
 local build without a registry pull, build the base yourself first
 (`../husky-offboard-base`) and override `BASE_IMAGE`:
 ```bash
-docker compose -f docker-compose.lan.yml build \
+docker compose build \
   --build-arg BASE_IMAGE=husky-offboard-base:jazzy
 # or:  export BASE_IMAGE=husky-offboard-base:jazzy  (compose default takes effect)
 ```
@@ -62,7 +62,7 @@ noVNC desktop.
 
 ## Build & Run
 ```bash
-# 1) Set ROBOT_ZENOH_ENDPOINT in docker-compose.lan.yml to the robot's
+# 1) Set ROBOT_ZENOH_ENDPOINT in docker-compose.yml to the robot's
 #    LAN IP:Port (port defaults to 7447).
 # 2) start:
 docker compose up --build
@@ -74,6 +74,13 @@ moveit-rviz
 ```
 `moveit-rviz` briefly checks whether `/a200_0553/move_group` is visible in the
 graph, then starts RViz with a preconfigured MotionPlanning panel.
+
+**Gripper meshes stay current on their own.** The build re-fetches
+`onrobot-rg6` (`RG6_REF`, default `main`) and rebuilds `rg6_description`; a
+cache-busting `ADD` of the GitHub commit API invalidates that layer exactly when
+the upstream commit changes — no `--no-cache` needed. Another branch/tag/fork:
+`docker compose build --build-arg RG6_REF=<ref>` (`RG6_REPO` likewise). To also
+refresh the GHCR base image itself: `docker compose build --pull`.
 
 ### Variant: directly on the robot (`docker-compose.robot.yml`)
 Instead of offboard from the laptop, the same container can run **on the robot**.
