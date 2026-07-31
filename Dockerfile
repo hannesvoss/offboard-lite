@@ -54,6 +54,37 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-jazzy-xacro \
     && rm -rf /var/lib/apt/lists/*
 
+# --- rg6-Quellen auffrischen + rg6_description neu bauen -------------------
+# Der Clone /opt/onrobot-rg6 kommt aus dem Base-Image und ist so alt wie dessen
+# git-clone-Layer. Damit ein Rebuild die AKTUELLEN Greifer-Meshes bekommt, wird
+# hier auf $RG6_REF nachgezogen und rg6_description neu gebaut (1:1 wie in
+# husky-offboard/Dockerfile, dort zusaetzlich rg6_control).
+#
+# Cache-Buster: BuildKit laedt die URL bei JEDEM Build und vergleicht den Inhalt
+# -> die Layer ab hier werden GENAU DANN neu gebaut, wenn sich der Commit von
+# $RG6_REF geaendert hat. Ohne das blieben fetch+colcon ewig im Layer-Cache.
+# Ohne Netz bzw. bei erschoepftem GitHub-API-Rate-Limit (60/h unauthentifiziert)
+# scheitert das ADD und damit der Build — dann die ADD-Zeile temporaer
+# auskommentieren (der git fetch unten laeuft weiter, nur eben cache-abhaengig).
+# Anderer Branch/Tag/Fork:  docker build --build-arg RG6_REF=<ref>
+ARG RG6_REPO=CLAIRLab-HAW/onrobot-rg6
+ARG RG6_REF=main
+ADD https://api.github.com/repos/${RG6_REPO}/commits/${RG6_REF} /tmp/rg6-commit.json
+# build/install/log werden vorher weggeworfen: nach einem `reset --hard` koennen
+# im Base-Image gebaute Artefakte zu geloeschten/umbenannten Quellen gehoeren,
+# die colcon inkrementell nicht aufraeumt (Stale-Meshes).
+# Anders als in der Base wird ein Fehler hier NICHT zu WARN degradiert: lite hat
+# keine rg6-Selbstheilung im entrypoint.sh (vgl. husky-offboard), ein leeres
+# install/ faellt erst als unsichtbarer Greifer in RViz auf.
+RUN source /opt/ros/jazzy/setup.bash \
+    && cd /opt/onrobot-rg6 \
+    && git fetch --prune origin "$RG6_REF" \
+    && git reset --hard FETCH_HEAD \
+    && echo "[rg6] $(git log -1 --format='%h %ci %s')" \
+    && rm -rf build install log /tmp/rg6-commit.json \
+    && colcon build --packages-select rg6_description \
+    || { echo "ERROR: rg6_description-Fetch/Build fehlgeschlagen -> Greifer bleibt ohne Mesh. Build-Log pruefen."; exit 1; }
+
 # --- RViz-Config + Kinematik + Helferskripte -------------------------------
 COPY config/ /opt/moveit_rviz/
 COPY scripts/moveit-rviz /usr/local/bin/moveit-rviz
