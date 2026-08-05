@@ -13,8 +13,17 @@
 # /a200_0553/*-Quelle gestartet -> gefahrlos gegen den echten Roboter. Geplant
 # wird auf dem move_group des Roboters, Execute bewegt den ECHTEN Arm (wie bei
 # jeder MoveIt-Bedienung) -> nur ausfuehren, wenn der Arbeitsbereich frei ist.
+#
+# Ohne diesen Block laeuft der json-file-Treiber ohne Begrenzung -- auf dem
+# Roboter waechst /var/lib/docker sonst unbegrenzt. 30 MB je Service.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 services:
   moveit-rviz:
+    logging: *logging
     build:
       context: .
       # Gemeinsames Basis-Image (siehe ../husky-offboard-base). Default = GHCR;

@@ -10,6 +10,19 @@
 # plant und fuehrt aus. Dieser Container hostet KEIN move_group.
 set -uo pipefail
 
+if [ -r /usr/local/bin/clearlog.sh ]; then
+    . /usr/local/bin/clearlog.sh
+else
+    log_debug() { :; }
+    # shellcheck disable=SC2059
+    log_info()  { if [ "$#" -gt 1 ]; then printf "$@" >&2; else printf '%s' "${1:-}" >&2; fi; echo >&2; }
+    log_warn()  { log_info "$@"; }
+    log_error() { log_info "$@"; }
+    log_phase() { log_info "$@"; }
+    clearlog_name() { :; }
+fi
+clearlog_name lite.rviz
+
 # ROS-Setup-Skripte vertragen kein nounset (referenzieren u.a.
 # AMENT_TRACE_SETUP_FILES ungesetzt) -> beim Sourcen set +u.
 set +u
@@ -33,12 +46,12 @@ if [ "$NS" != "a200_0553" ] && [ -f "$RVIZ_CFG" ]; then
     RVIZ_CFG=/tmp/moveit.rviz
 fi
 
-echo "[moveit-rviz] NS=${NS}  RMW=${RMW_IMPLEMENTATION}"
-echo "[moveit-rviz] warte auf Nodes des Roboters ..."
+log_info "NS=%s  RMW=%s" "$NS" "$RMW_IMPLEMENTATION"
+log_info "warte auf Nodes des Roboters ..."
 if command -v timeout >/dev/null 2>&1; then
     timeout 8 ros2 node list 2>/dev/null | grep -q "/${NS}/move_group" \
-        && echo "[moveit-rviz]   -> /${NS}/move_group gefunden." \
-        || echo "[moveit-rviz]   -> move_group noch nicht sichtbar (Zenoh/Netz? Roboter an?)."
+        && log_info "  -> %s/move_group gefunden." "$NS" \
+        || log_info "  -> move_group noch nicht sichtbar (Zenoh/Netz? Roboter an?)."
 fi
 
 # --- Arm-Controller ggf. reaktivieren (nach husky-demo-imitate Graceful Shutdown)
@@ -54,7 +67,7 @@ fi
 MANIP_NS="${MANIP_NS:-${NS}/manipulators}"
 JTC="${JTC_NAME:-arm_0_joint_trajectory_controller}"
 if [ "${JTC_REACTIVATE:-1}" = "1" ]; then
-    echo "[moveit-rviz] pruefe Arm-Controller (mode/active) ..."
+    log_info "pruefe Arm-Controller (mode/active) ..."
     active_msg=""
     if command -v timeout >/dev/null 2>&1; then
         active_msg=$(timeout 10 ros2 service call \
@@ -70,44 +83,44 @@ if [ "${JTC_REACTIVATE:-1}" = "1" ]; then
 
     case "$active_msg" in
         *"$JTC"*)
-            echo "[moveit-rviz]   -> ${JTC} bereits aktiv (\"${active_msg}\"). Keine Reaktivierung noetig."
+            log_info "  -> %s bereits aktiv (\"%s\"). Keine Reaktivierung noetig." "$JTC" "$active_msg"
             ;;
         *)
-            echo "[moveit-rviz]   -> ${JTC} NICHT aktiv (\"${active_msg:-Antwort leer/Timeout}\"). Reaktiviere ..."
+            log_info "  -> %s NICHT aktiv (\"%s\"). Reaktiviere ..." "$JTC" "${active_msg:-Antwort leer/Timeout}"
             # 1) prepare: Arm bestromen + io_and_status_controller aktivieren.
-            echo "[moveit-rviz]   -> prepare (Arm bestromen) ..."
+            log_info "  -> prepare (Arm bestromen) ..."
             if command -v timeout >/dev/null 2>&1; then
                 timeout 30 ros2 service call \
                     "/${MANIP_NS}/ur_state_manager/prepare" \
                     std_srvs/srv/Trigger 2>/dev/null \
-                    && echo "[moveit-rviz]   -> prepare ok." \
-                    || echo "[moveit-rviz]   -> WARN: prepare fehlgeschlagen/Timeout (ur_state_manager sichtbar? Arm bestromt?)."
+                    && log_info "  -> prepare ok." \
+                    || log_warn "  -> prepare fehlgeschlagen/Timeout (ur_state_manager sichtbar? Arm bestromt?)."
             else
                 ros2 service call "/${MANIP_NS}/ur_state_manager/prepare" \
                     std_srvs/srv/Trigger 2>/dev/null \
-                    && echo "[moveit-rviz]   -> prepare ok." \
-                    || echo "[moveit-rviz]   -> WARN: prepare fehlgeschlagen."
+                    && log_info "  -> prepare ok." \
+                    || log_warn "  -> prepare fehlgeschlagen."
             fi
             # 2) mode/trajectory: JTC aktivieren (idempotent - aktiviert JTC,
             #    deaktiviert sonstige Command-Controller der exklusiven Gruppe).
-            echo "[moveit-rviz]   -> mode/trajectory (JTC aktivieren) ..."
+            log_info "  -> mode/trajectory (JTC aktivieren) ..."
             if command -v timeout >/dev/null 2>&1; then
                 timeout 20 ros2 service call \
                     "/${MANIP_NS}/ur_controller_mode_manager/mode/trajectory" \
                     std_srvs/srv/Trigger 2>/dev/null \
-                    && echo "[moveit-rviz]   -> mode/trajectory ok." \
-                    || echo "[moveit-rviz]   -> WARN: mode/trajectory fehlgeschlagen/Timeout (Execute geht ggf. nicht)."
+                    && log_info "  -> mode/trajectory ok." \
+                    || log_warn "  -> mode/trajectory fehlgeschlagen/Timeout (Execute geht ggf. nicht)."
             else
                 ros2 service call \
                     "/${MANIP_NS}/ur_controller_mode_manager/mode/trajectory" \
                     std_srvs/srv/Trigger 2>/dev/null \
-                    && echo "[moveit-rviz]   -> mode/trajectory ok." \
-                    || echo "[moveit-rviz]   -> WARN: mode/trajectory fehlgeschlagen."
+                    && log_info "  -> mode/trajectory ok." \
+                    || log_warn "  -> mode/trajectory fehlgeschlagen."
             fi
             ;;
     esac
 else
-    echo "[moveit-rviz] JTC_REACTIVATE=0 -> Arm-Controller-Reaktivierung uebersprungen."
+    log_info "JTC_REACTIVATE=0 -> Arm-Controller-Reaktivierung uebersprungen."
 fi
 
 # --- URDF + SRDF vom laufenden Roboter holen und als LOKALE Params an RViz ---
@@ -134,19 +147,19 @@ urdf_ok=0; srdf_ok=0
 # URDF primaer vom move_group (hat garantiert das VOLLSTAENDIGE, geplante URDF;
 # ein robot_state_publisher koennte bei Clearpath nur ein Teil-URDF haben),
 # robot_state_publisher als Fallback.
-echo "[moveit-rviz] hole URDF von ${MG_NODE} ..."
+log_info "hole URDF von %s ..." "$MG_NODE"
 if fetch_param "$MG_NODE" robot_description /tmp/urdf.xml; then
-    urdf_ok=1; echo "[moveit-rviz]   -> URDF ok ($(wc -c </tmp/urdf.xml) Bytes, via move_group)."
+    urdf_ok=1; log_info "  -> URDF ok (%s Bytes, via move_group)." "$(wc -c </tmp/urdf.xml)"
 elif fetch_param "$RSP_NODE" robot_description /tmp/urdf.xml; then
-    urdf_ok=1; echo "[moveit-rviz]   -> URDF ok ($(wc -c </tmp/urdf.xml) Bytes, via robot_state_publisher)."
+    urdf_ok=1; log_info "  -> URDF ok (%s Bytes, via robot_state_publisher)." "$(wc -c </tmp/urdf.xml)"
 else
-    echo "[moveit-rviz]   -> WARN: URDF-Parameter nicht lesbar (Nodes: '${MG_NODE}' / '${RSP_NODE}')."
+    log_warn "  -> URDF-Parameter nicht lesbar (Nodes: '%s' / '%s')." "$MG_NODE" "$RSP_NODE"
 fi
-echo "[moveit-rviz] hole SRDF von ${MG_NODE} ..."
+log_info "hole SRDF von %s ..." "$MG_NODE"
 if fetch_param "$MG_NODE" robot_description_semantic /tmp/srdf.xml; then
-    srdf_ok=1; echo "[moveit-rviz]   -> SRDF ok ($(wc -c </tmp/srdf.xml) Bytes)."
+    srdf_ok=1; log_info "  -> SRDF ok (%s Bytes)." "$(wc -c </tmp/srdf.xml)"
 else
-    echo "[moveit-rviz]   -> WARN: SRDF-Parameter nicht lesbar (Planning-Group bleibt evtl. leer)."
+    log_warn "  -> SRDF-Parameter nicht lesbar (Planning-Group bleibt evtl. leer)."
 fi
 
 PARAM_ARGS=(--params-file "$KIN")
@@ -162,9 +175,9 @@ if srdf:
 print(yaml.safe_dump({"/**": {"ros__parameters": p}}, allow_unicode=True))
 PY
     PARAM_ARGS+=(--params-file /tmp/robot_params.yaml)
-    echo "[moveit-rviz] URDF/SRDF als lokale Params geladen."
+    log_info "URDF/SRDF als lokale Params geladen."
 else
-    echo "[moveit-rviz] Starte RViz OHNE lokales Modell (Fallback: Topic-Subscription)."
+    log_info "Starte RViz OHNE lokales Modell (Fallback: Topic-Subscription)."
 fi
 
 # --- TF-Remapping ----------------------------------------------------------
@@ -176,7 +189,7 @@ fi
 TF_REMAP_ARGS=()
 if [ "${TF_REMAP:-1}" = "1" ]; then
     TF_REMAP_ARGS=(-r /tf:=/${NS}/tf -r /tf_static:=/${NS}/tf_static)
-    echo "[moveit-rviz] TF-Remap: /tf,/tf_static -> /${NS}/tf,/${NS}/tf_static (TF_REMAP=0 zum Abschalten)."
+    log_info "TF-Remap: /tf,/tf_static -> /%s/tf,/%s/tf_static (TF_REMAP=0 zum Abschalten)." "$NS" "$NS"
 fi
 
 # kinematics.yaml (KDL) fuer lokale IK des interaktiven Markers. Ohne sie gehen

@@ -24,6 +24,19 @@ docker compose build \
 ```
 For reproducible builds, pin the base digest (`FROM ...@sha256:...`).
 
+This container's `docker logs` follows the same scheme as the rest of the
+workspace (same columns for shell, ROS and Python) — details in
+[docs/handbook/06-protokollierung.md](../../docs/handbook/06-protokollierung.md),
+not repeated here. One thing worth knowing locally: `clearlog.sh` was only
+just added to `husky-offboard-base/Dockerfile` and isn't in the pushed GHCR
+base yet (CI hasn't rebuilt it) — `moveit-rviz` falls back to plain `echo`
+in that case (no crash, just the old formatting; see `scripts/moveit-rviz:13-22`
+for the fallback block). `teach-pose` is unaffected either way — it never
+sources `clearlog.sh` and has no `log_*` calls of its own, it just `exec`s
+`teach_pose.py` directly (plain `print()` / rclpy's own logger). So this image
+is not blocked on the `BASE_IMAGE=husky-offboard-base:jazzy` override the way
+`husky-offboard` is (see that image's README for the concrete failure mode).
+
 ## Why this works without the Clearpath stack
 On the robot, `manipulators.moveit.enable: true` → **`move_group` runs
 there** and provides:

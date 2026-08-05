@@ -10,8 +10,17 @@
 # WICHTIG - Last: RViz nutzt Software-GL (llvmpipe) und konkurriert mit
 # move_group/Controllern -> nur bei Bedarf starten (kein Autostart), damit die
 # 125-Hz-Arm-Regelung nicht leidet.
+#
+# Ohne diesen Block laeuft der json-file-Treiber ohne Begrenzung -- auf dem
+# Roboter waechst /var/lib/docker sonst unbegrenzt. 30 MB je Service.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 services:
   moveit-rviz:
+    logging: *logging
     network_mode: host            # Netzwerk-Stack des Roboters -> Zenoh-Router localhost:7447
     ports: !reset []              # host networking exponiert 6080 direkt (kein Mapping)
     environment:

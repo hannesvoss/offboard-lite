@@ -9,6 +9,19 @@
 # KEINE robot.yaml. Das Modell kommt live vom move_group des Roboters.
 set -uo pipefail
 
+if [ -r /usr/local/bin/clearlog.sh ]; then
+    . /usr/local/bin/clearlog.sh
+else
+    log_debug() { :; }
+    # shellcheck disable=SC2059
+    log_info()  { if [ "$#" -gt 1 ]; then printf "$@" >&2; else printf '%s' "${1:-}" >&2; fi; echo >&2; }
+    log_warn()  { log_info "$@"; }
+    log_error() { log_info "$@"; }
+    log_phase() { log_info "$@"; }
+    clearlog_name() { :; }
+fi
+clearlog_name lite.entry
+
 src() { set +u; # ROS-setup-Skripte vertragen kein nounset
   # shellcheck disable=SC1090
   source "$1" 2>/dev/null || true; set -u; }
@@ -34,5 +47,5 @@ zenoh-connect.sh lite
 # Beschnitt im Browser. noVNC defaultet auf lokales Scaling (s. Base-Dockerfile).
 start-desktop.sh lite
 
-echo "[lite] bereit. Im noVNC-Terminal: moveit-rviz  |  teach-pose (Posen per FreeDrive)"
+echo "bereit. Im noVNC-Terminal: moveit-rviz  |  teach-pose (Posen per FreeDrive)"
 exec "$@"
