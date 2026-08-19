@@ -5,7 +5,20 @@ Its sole purpose: **open MoveIt in RViz** and graphically operate the
 `move_group` already running on the robot (Plan & Execute for the
 UR5). RViz runs in the browser (noVNC).
 
-## Base image
+## Features
+
+- **RViz + MoveIt against the robot's own `move_group`** — no second planning
+  stack, no Clearpath bringup in the container.
+- **Slim**: only what a viewing and teaching client needs.
+- **`teach-pose`** writes poses straight into the `robot.yaml` shape.
+- **GUI over noVNC**, same as the full offboard container.
+
+## Tech Stack
+
+Docker (arm64 native), ROS 2 Jazzy, RViz2, MoveIt, Zenoh. Built `FROM`
+[husky-offboard-base](../husky-offboard-base/README.md).
+
+### Base image
 This image builds on the shared [`husky-offboard-base`](https://github.com/CLAIRLab-HAW/husky-offboard-base)
 (Clearpath apt repo, noVNC/desktop stack, noVNC scaling patch,
 `rg6_description` build, `/usr/local/bin/start-desktop.sh`, shared ENV defaults).
@@ -37,7 +50,7 @@ sources `clearlog.sh` and has no `log_*` calls of its own, it just `exec`s
 is not blocked on the `BASE_IMAGE=husky-offboard-base:jazzy` override the way
 `husky-offboard` is (see that image's README for the concrete failure mode).
 
-## Why this works without the Clearpath stack
+### Why this works without the Clearpath stack
 On the robot, `manipulators.moveit.enable: true` → **`move_group` runs
 there** and provides:
 - `/a200_0553/robot_description` (URDF, from `robot_state_publisher`)
@@ -56,7 +69,7 @@ generators, **no** `robot.yaml`, and **no** Gazebo.
 > Zenoh bridge (RViz saw an empty URDF → `XML_ERROR_EMPTY_DOCUMENT`).
 > The parameter service delivers the model already computed on the robot directly.
 
-## What's inside
+### What's inside
 Feature | **husky-offboard-lite** |
 |---|---|
 | Zenoh connection to the robot | ✅ |
@@ -73,7 +86,15 @@ Installed: `rviz2`, `moveit-ros-visualization`, `moveit-kinematics`,
 sensors, manipulators, RealSense) + `rg6_description` from source (gripper) + the
 noVNC desktop.
 
-## Build & Run
+## Installation
+
+```bash
+cd deploy/husky-offboard-lite
+BASE_IMAGE=husky-offboard-base:jazzy docker compose build
+docker compose up -d
+```
+
+## Usage
 ```bash
 # 1) Set ROBOT_ZENOH_ENDPOINT in docker-compose.yml to the robot's
 #    LAN IP:Port (port defaults to 7447).
@@ -116,7 +137,7 @@ Things to keep in mind:
   autostart), so the 125 Hz arm control loop doesn't suffer. Over the network,
   VNC pixels travel instead of ROS data.
 
-## One-time wiring checks (important)
+### One-time wiring checks (important)
 Because **nothing is generated** here, everything depends on the robot's live
 topics/frames. If the model doesn't appear or the panel stays empty, check in
 this order (in the noVNC xterm):
@@ -148,7 +169,7 @@ this order (in the noVNC xterm):
    `moveit-rviz`). Without local IK, MoveIt is still usable: Tab **Joints**,
    **Update**, **Plan** & **Execute**.
 
-## Teaching poses for `robot.yaml` (`teach-pose`)
+### Teaching poses for `robot.yaml` (`teach-pose`)
 In the noVNC xterm, alongside `moveit-rviz`, there's the script **`teach-pose`**.
 With it you drive the UR5 **via FreeDrive** by hand into a pose and get the joint
 angles in the exact YAML format that `husky-custom-setup/robot.yaml` expects under
@@ -203,7 +224,7 @@ change**. If they don't:
 > **Caution:** In FreeDrive the arm may sag slightly under gravity — hold on to
 > it while guiding and keep the workspace clear.
 
-## Operating in RViz
+### Operating in RViz
 - Panel **Motion Planning** → Tab **Planning**: select **Planning Group**, set
   **Query Goal State** (drag the marker or use the Joints tab), **Plan**,
   then **Execute**.
@@ -221,3 +242,17 @@ change**. If they don't:
 - **Scaffold, not end-to-end validated here.** The exact topic/frame/group wiring
   may need a one-time adjustment depending on the Clearpath version (see the
   checks above).
+
+## Related
+
+- [husky-offboard](../husky-offboard/README.md) — the full offboard container
+- [husky-offboard-base](../husky-offboard-base/README.md) — the shared base
+
+## Versioning
+
+[Semantic Versioning](https://semver.org/) via the `VERSION` file and
+[CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+See workspace root.
