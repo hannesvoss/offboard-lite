@@ -8,6 +8,18 @@ die Versionierung [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- **`VNC_PASSWORD` (Default `husky`) — ohne das war der VNC-Port nicht
+  benutzbar.** `x11vnc` bot ohne Passwort nur Security-Typ `None` an; Apples
+  Bildschirmfreigabe lehnt den ab und meldet dabei etwas über den *entfernten
+  Rechner*, obwohl der Handshake scheiterte. Dasselbe fehlende Passwort ließ
+  `x11vnc` an `127.0.0.1` binden statt an `0.0.0.0` — deshalb antwortete `5900`
+  auf dem Roboter mit "Connection refused". Am 2026-08-20 durchgemessen:
+  Typ `2` angeboten, Anmeldung akzeptiert, Framebuffer 1600x900 übergeben.
+  Die Mechanik sitzt in `start-desktop.sh` der
+  [Base](../husky-offboard-base/README.md).
+- **`NOVNC_PORT`/`VNC_PORT` machen die Host-Ports verschiebbar.** Der große
+  `husky-offboard`-Container publisht 6080 ebenfalls; auf Defaults können beide
+  nicht nebeneinander hochkommen. `NOVNC_PORT=6081 docker compose up -d`.
 - **RViz kommt jetzt mit dem Container hoch.** Der Basis-Compose setzt
   `command: moveit-rviz` — `docker compose up -d` genügt, der Umweg über
   noVNC-Desktop → Rechtsklick → xterm → `moveit-rviz` entfällt. Beendet man

@@ -128,11 +128,26 @@ preconfigured MotionPlanning panel. Closing the RViz window does **not** kill
 the container — it drops back to `sleep infinity`, so you can reopen it from an
 xterm on the desktop with `moveit-rviz`, or `docker compose restart`.
 
-**Port 5900 is bound to `127.0.0.1` on purpose.** `x11vnc` runs `-nopw`, i.e.
-without a password — a passwordless remote framebuffer has no business on the
-LAN. Reaching it from another machine is an SSH tunnel away
-(`ssh -L 5900:localhost:5900 <host>`), not a compose edit. Port 6080 keeps its
-previous binding (all interfaces).
+**The VNC port needs a password to be usable at all.** Without one `x11vnc`
+offers a single security type, `None`, and Apple's Screen Sharing refuses it —
+answering with a line about the *remote machine* ("make sure Screen Sharing is
+enabled") when what really failed was the handshake. The same missing password
+makes `x11vnc` bind `127.0.0.1` instead of `0.0.0.0`, which is why port 5900 on
+the robot answers *Connection refused* from the laptop. `VNC_PASSWORD`
+(default `husky`, 8 characters max by protocol) settles both. noVNC on 6080
+never asks for it — `websockify` reaches 5900 over the container's own
+loopback.
+
+**Port 5900 is bound to `127.0.0.1` on the host side** — the password guards
+the protocol, the binding keeps the offboard container's framebuffer off the
+LAN entirely. From another machine: `ssh -L 5900:localhost:5900 <host>`. Port
+6080 keeps its previous binding (all interfaces).
+
+**Both host ports are movable.** The full `husky-offboard` container publishes
+6080 as well, so the two cannot come up side by side on defaults:
+```bash
+NOVNC_PORT=6081 docker compose up -d      # VNC_PORT moves 5900 the same way
+```
 
 **This image does not energize the arm.** `moveit-rviz` can reactivate the
 arm's trajectory controller, and to do that it calls `ur_state_manager/prepare`

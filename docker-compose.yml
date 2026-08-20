@@ -45,6 +45,13 @@ services:
       # beim Hochfahren. Der Schalter bleibt durchgereicht, damit man ihn im
       # Bedarfsfall bewusst umlegen kann: JTC_REACTIVATE=1 docker compose up -d
       - JTC_REACTIVATE=${JTC_REACTIVATE:-0}
+      # x11vnc bietet ohne Passwort nur Security-Typ "None" an -- Apples
+      # Bildschirmfreigabe lehnt den ab ("Verbindung fehlgeschlagen ..."), und
+      # auf dem Roboter bindet x11vnc dann an 127.0.0.1 statt 0.0.0.0. Mit
+      # Passwort: Typ "VNC Auth", Bind auf allen Interfaces. Protokollgrenze
+      # 8 Zeichen. noVNC auf 6080 ist davon unberuehrt (websockify geht
+      # containerintern auf localhost:5900).
+      - VNC_PASSWORD=${VNC_PASSWORD:-husky}
     # RViz+MoveIt direkt beim Hochfahren, statt erst xterm im noVNC-Desktop.
     # Beendet man RViz, bleibt der Container offen -> im xterm neu startbar.
     # Abschaltbar durch Override (s. docker-compose.robot.yml).
@@ -53,11 +60,13 @@ services:
       - -lc
       - "moveit-rviz; echo '[lite] RViz beendet -- neu starten: moveit-rviz'; exec sleep infinity"
     ports:
-      - "6080:6080"             # noVNC (RViz im Browser)
+      # Host-Ports verschiebbar: der grosse husky-offboard-Container belegt
+      # 6080 ebenfalls, beide gleichzeitig gehen nur mit NOVNC_PORT=<frei>.
+      - "${NOVNC_PORT:-6080}:6080"   # noVNC (RViz im Browser)
       # Rohes VNC direkt von x11vnc (-nopw!) -- ohne noVNC/Browser. Am Mac:
       #   open vnc://localhost:5900     (Bildschirmfreigabe, kein Passwort)
       # Bewusst nur an 127.0.0.1 gebunden: x11vnc laeuft ohne Passwort, das
       # gehoert nicht ins LAN. (Wer 6080 genauso dichtmachen will: dort
       # ebenfalls "127.0.0.1:" voranstellen -- kostet den Zugriff vom Laptop.)
-      - "127.0.0.1:5900:5900"   # VNC (RFB) fuer einen nativen Viewer
+      - "127.0.0.1:${VNC_PORT:-5900}:5900"   # VNC (RFB) fuer einen nativen Viewer
     restart: "no"
