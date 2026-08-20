@@ -3,9 +3,15 @@
 # move_group des ECHTEN Roboters (ueber den Zenoh-Graphen).
 #
 # Modell (URDF/SRDF) wird beim Start per Parameter-Service vom Roboter gezogen
-# (robot_state_publisher.robot_description + move_group.robot_description_semantic)
 # und als lokale Params an RViz gegeben -- die gelatchte String-Topic wird ueber
 # die Zenoh-Bridge nicht zuverlaessig an spaete Subscriber ausgeliefert.
+#
+# BEIDE primaer vom move_group. Er ist die Instanz, die mit dem Modell PLANT --
+# was er ausliefert, ist per Definition das Modell, gegen das die Goals laufen.
+# Das SRDF gibt es ohnehin nur dort. Der robot_state_publisher bleibt Fallback
+# fuer das URDF, als Vorsichtsmassnahme gegen ein Teil-URDF; im Container-Mock
+# sind beide Quellen am 2026-08-20 byteweise gleich gross gemessen worden
+# (49691), eine Abweichung am ECHTEN Roboter ist hier also nicht belegt.
 # Planungs-Goals gehen an die move_action-Action des Roboters -> der Roboter
 # plant und fuehrt aus. Dieser Container hostet KEIN move_group.
 set -uo pipefail
@@ -23,6 +29,14 @@ else
 fi
 clearlog_name lite.rviz
 
+# Die Source-Kette steht hier ausgeschrieben und NICHT als `source ros-env` wie
+# im grossen husky-offboard. Das ist Absicht, kein vergessener Abgleich: dort
+# hat die Kette drei Overlays (ros + clearpath_ws + rg6) und muss
+# RMW_IMPLEMENTATION um das generierte /clearpath/setup.bash herumretten. Dieses
+# Image hat weder clearpath_ws noch /clearpath -- es plant ja nicht, es schaut
+# zu. Zwei Overlays sind hier die vollstaendige Kette, und rmw_zenoh ist der
+# richtige Default, weil am anderen Ende der ECHTE Roboter haengt.
+#
 # ROS-Setup-Skripte vertragen kein nounset (referenzieren u.a.
 # AMENT_TRACE_SETUP_FILES ungesetzt) -> beim Sourcen set +u.
 set +u

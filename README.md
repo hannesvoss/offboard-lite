@@ -40,11 +40,12 @@ For reproducible builds, pin the base digest (`FROM ...@sha256:...`).
 This container's `docker logs` follows the same scheme as the rest of the
 workspace (same columns for shell, ROS and Python) — details in
 [docs/handbook/06-protokollierung.md](../../docs/handbook/06-protokollierung.md),
-not repeated here. One thing worth knowing locally: `clearlog.sh` was only
-just added to `husky-offboard-base/Dockerfile` and isn't in the pushed GHCR
-base yet (CI hasn't rebuilt it) — `moveit-rviz` falls back to plain `echo`
-in that case (no crash, just the old formatting; see `scripts/moveit-rviz:13-22`
-for the fallback block). `teach-pose` is unaffected either way — it never
+not repeated here. One thing worth knowing locally: `moveit-rviz` sources
+`/usr/local/bin/clearlog.sh` when the base image carries it, and otherwise
+defines plain-`echo` stand-ins for `log_info` and friends (the `if [ -r
+/usr/local/bin/clearlog.sh ]` block at the top of the script). Either way it
+starts — a base without `clearlog.sh` costs the formatting, nothing
+else. `teach-pose` is unaffected either way — it never
 sources `clearlog.sh` and has no `log_*` calls of its own, it just `exec`s
 `teach_pose.py` directly (plain `print()` / rclpy's own logger). So this image
 is not blocked on the `BASE_IMAGE=husky-offboard-base:jazzy` override the way
@@ -58,11 +59,23 @@ there** and provides:
 - the `/a200_0553/move_action` action + planning scene topics
 
 The `moveit-rviz` script **pulls URDF + SRDF at startup via the parameter service**
-from the robot (`robot_state_publisher.robot_description` +
-`move_group.robot_description_semantic`) and passes them to RViz as local
-parameters. Planning goals go to the robot's `move_group` (`move_action`). So the
+from the robot and passes them to RViz as local parameters. It asks
+`move_group` for both (`robot_description` + `robot_description_semantic`) and
+falls back to `robot_state_publisher` only for the URDF. `move_group` is asked
+first because it is the node that *plans* with the model — what it serves is by
+definition the model the goals run against — and because the SRDF exists only
+there. The fallback is a precaution against a partial URDF, not a fix for an
+observed divergence: in the container mock both sources measure byte-identical.
+
+Planning goals go to the robot's `move_group` (`move_action`). So the
 container does **not** need to bring its own `move_group`, **no** Clearpath
 generators, **no** `robot.yaml`, and **no** Gazebo.
+
+That cuts both ways for the gripper: the SRDF comes from the robot, so the
+`gripper` planning group, its named states and its **collision matrix** are
+whatever the robot's `rg6_moveit_patch` wrote — this image has no say in it.
+It builds `rg6_description` only, for the meshes. If a gripper pose refuses to
+plan here, the place to look is the robot's SRDF, not this container.
 
 > Why the parameter service instead of a live topic: the latched `robot_description`
 > string topic is not reliably delivered to late-joining subscribers across the
@@ -146,8 +159,11 @@ this order (in the noVNC xterm):
    parameter service. Check manually:
    ```bash
    ros2 node list | grep -E 'move_group|robot_state_publisher'   # correct node names?
-   ros2 param get /a200_0553/robot_state_publisher robot_description | head -c 120
+   # same order the script uses: move_group first, robot_state_publisher only
+   # as the URDF fallback
+   ros2 param get /a200_0553/move_group robot_description | head -c 120
    ros2 param get /a200_0553/move_group robot_description_semantic | head -c 120
+   ros2 param get /a200_0553/robot_state_publisher robot_description | head -c 120
    ```
    Empty/error → Zenoh/network: is `ROBOT_ZENOH_ENDPOINT` correct? Is the robot
    reachable (`ping`)? Is `rmw_zenohd` running (`cat /tmp/zenohd.log`)? If the
