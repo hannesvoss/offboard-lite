@@ -7,6 +7,22 @@ die Versionierung [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Behoben
+- **"Clear octomap" rief den Dienst unter dem falschen Namen.** Das
+  MotionPlanning-Plugin haengt "Move Group Namespace" an jeden seiner
+  Service-Clients -- ausser an den fuer `clear_octomap`. Am 2026-08-20 am
+  laufenden RViz nachgemessen (`ros2 node info /rviz`): vier Clients auf
+  `/a200_0553/...`, einer auf dem globalen `/clear_octomap`. Der Server sitzt
+  unter `/a200_0553/clear_octomap`, der Knopf endete also in
+  "Failed to call clear_octomap_service". Ein `-r`-Remap zieht den Client auf
+  den Namen des Servers, wie es fuer `/tf` schon geschah.
+
+  Im Container-Mock faellt das nicht auf: der Knopf ist grau, solange die
+  Planungsszene keine Octomap traegt (gemessen: kein octomap-Knoten, Octomap im
+  `monitored_planning_scene` mit leerem Stempel). Am Roboter fuettert
+  `octomap_feed` sie -- deshalb kam die Meldung aus `husky-offboard-lite`,
+  obwohl beide Images dieselbe RViz-Config benutzen.
+
 ### Doku-Abgleich
 - **Die Modellquelle stand falsch in Skript und README.** Beide sagten, das
   URDF komme vom `robot_state_publisher`. `moveit-rviz` fragt seit laengerem

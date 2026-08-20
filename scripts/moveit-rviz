@@ -200,6 +200,24 @@ fi
 # TF kann MoveIt den aktuellen Zustand nicht aufloesen -> kein Planen.
 # Daher /tf + /tf_static auf den Roboter-Namespace remappen. Falls dein Setup TF
 # doch global publiziert: TF_REMAP=0 moveit-rviz.
+# --- clear_octomap zurechtruecken ------------------------------------------
+# Das MotionPlanning-Plugin haengt "Move Group Namespace" an JEDEN seiner
+# Service-Clients -- ausser an den fuer clear_octomap. Am 2026-08-20 am
+# laufenden RViz nachgemessen (ros2 node info /rviz):
+#
+#   /a200_0553/compute_cartesian_path     <- namespaced
+#   /a200_0553/get_planner_params         <- namespaced
+#   /a200_0553/query_planner_interface    <- namespaced
+#   /a200_0553/set_planner_params         <- namespaced
+#   /clear_octomap                        <- GLOBAL
+#
+# Der Server liegt aber unter /<ns>/clear_octomap. Der Knopf "Clear octomap"
+# scheitert deshalb mit "Failed to call clear_octomap_service" -- und zwar nur
+# dort, wo er ueberhaupt anklickbar ist: er ist grau, solange die Planungsszene
+# keine Octomap traegt. Am Roboter fuettert sie octomap_feed, im Container-Mock
+# gibt es keine. Der Remap zieht den Client auf den Namen des Servers.
+OCTOMAP_REMAP_ARGS=(-r /clear_octomap:=/${NS}/clear_octomap)
+
 TF_REMAP_ARGS=()
 if [ "${TF_REMAP:-1}" = "1" ]; then
     TF_REMAP_ARGS=(-r /tf:=/${NS}/tf -r /tf_static:=/${NS}/tf_static)
@@ -208,4 +226,5 @@ fi
 
 # kinematics.yaml (KDL) fuer lokale IK des interaktiven Markers. Ohne sie gehen
 # trotzdem Joints-Tab, Update, Plan/Execute.
-exec ros2 run rviz2 rviz2 -d "$RVIZ_CFG" --ros-args "${TF_REMAP_ARGS[@]}" "${PARAM_ARGS[@]}"
+exec ros2 run rviz2 rviz2 -d "$RVIZ_CFG" --ros-args "${TF_REMAP_ARGS[@]}" \
+    "${OCTOMAP_REMAP_ARGS[@]}" "${PARAM_ARGS[@]}"
