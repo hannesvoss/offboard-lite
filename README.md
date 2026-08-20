@@ -11,8 +11,9 @@ UR5). RViz runs in the browser (noVNC).
   stack, no Clearpath bringup in the container.
 - **Slim**: only what a viewing and teaching client needs.
 - **`teach-pose`** writes poses straight into the `robot.yaml` shape.
-- **RViz starts by itself** — `command: moveit-rviz` in the base compose, so
-  `docker compose up -d` is the whole ritual; no xterm click-through.
+- **RViz starts by itself** — `docker compose up -d` is the whole ritual, on the
+  robot too; no xterm click-through. `RVIZ_AUTOSTART=0` turns it off where the
+  CPU is needed elsewhere.
 - **Two ways to watch**: noVNC in the browser (`:6080`) *or* a native VNC
   viewer straight on `:5900` (no browser, no websockify in the path).
 
@@ -196,12 +197,17 @@ docker compose -f docker-compose.yml -f docker-compose.robot.yml up --build
 # from the laptop browser:
 #   http://<robot-ip>:6080/vnc.html  -> xterm -> moveit-rviz
 ```
-The robot override **takes the autostart back out** (`command: sleep infinity`)
-for the load reason below — there RViz is started by hand, as before. It does
-**not** re-enable `JTC_REACTIVATE`: running on the robot is not a reason for
-this image to energize the arm either. With `network_mode: host` there is no
-port mapping, so `5900` is reachable directly on the robot's address; that is
-the robot's network, and `-nopw` applies there too.
+The robot override **keeps the autostart** — a container with one job should do
+it, and an empty desktop waiting for someone to type `moveit-rviz` is not
+operation. The load note below stays true all the same, so the off switch is an
+environment variable rather than a file edit:
+```bash
+RVIZ_AUTOSTART=0 docker compose -f docker-compose.yml -f docker-compose.robot.yml up -d
+```
+The override does **not** re-enable `JTC_REACTIVATE`: running on the robot is
+not a reason for this image to energize the arm either. With `network_mode:
+host` there is no port mapping, so `5900` is reachable directly on the robot's
+address — password-protected, and on the robot's own network.
 Things to keep in mind:
 - **CPU architecture:** build on the **robot** (x86_64). An image built on Apple
   Silicon (arm64) won't run there without `docker buildx --platform linux/amd64`.

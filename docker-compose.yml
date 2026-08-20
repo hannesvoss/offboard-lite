@@ -52,13 +52,17 @@ services:
       # 8 Zeichen. noVNC auf 6080 ist davon unberuehrt (websockify geht
       # containerintern auf localhost:5900).
       - VNC_PASSWORD=${VNC_PASSWORD:-husky}
+      # RViz beim Hochfahren starten. 0 spart die llvmpipe-Last -- auf dem
+      # Roboter konkurriert RViz mit move_group und den Controllern.
+      - RVIZ_AUTOSTART=${RVIZ_AUTOSTART:-1}
     # RViz+MoveIt direkt beim Hochfahren, statt erst xterm im noVNC-Desktop.
     # Beendet man RViz, bleibt der Container offen -> im xterm neu startbar.
-    # Abschaltbar durch Override (s. docker-compose.robot.yml).
+    # Abschalten ohne Dateiaenderung: RVIZ_AUTOSTART=0 docker compose up -d
+    # ($$ ist compose-Escaping -- die Shell IM Container soll expandieren.)
     command:
       - bash
       - -lc
-      - "moveit-rviz; echo '[lite] RViz beendet -- neu starten: moveit-rviz'; exec sleep infinity"
+      - "if [ \"$${RVIZ_AUTOSTART}\" = \"1\" ]; then moveit-rviz; echo '[lite] RViz beendet -- neu starten: moveit-rviz'; else echo '[lite] RVIZ_AUTOSTART=0 -- RViz nicht gestartet (im xterm: moveit-rviz)'; fi; exec sleep infinity"
     ports:
       # Host-Ports verschiebbar: der grosse husky-offboard-Container belegt
       # 6080 ebenfalls, beide gleichzeitig gehen nur mit NOVNC_PORT=<frei>.

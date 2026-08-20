@@ -23,11 +23,13 @@ services:
     logging: *logging
     network_mode: host            # Netzwerk-Stack des Roboters -> Zenoh-Router localhost:7447
     ports: !reset []              # host networking exponiert 6080/5900 direkt (kein Mapping)
-    # KEIN Autostart auf dem Roboter: RViz rechnet in llvmpipe und konkurriert
-    # mit move_group/Controllern (s. Kopf, 125-Hz-Regelung). Der Autostart aus
-    # dem Basis-Compose wird hier bewusst zurueckgenommen -- RViz startet man im
-    # noVNC-xterm von Hand mit  moveit-rviz.
-    command: ["sleep", "infinity"]
+    # Autostart gilt hier genauso wie offboard -- der Container hat einen Zweck,
+    # und ein leerer Desktop, auf dem man erst 'moveit-rviz' tippen muss, ist
+    # keine Bedienung. Die Last aus dem Kopf dieser Datei bleibt real: RViz
+    # rechnet in llvmpipe und konkurriert mit move_group und den Controllern.
+    # Wer die CPU-Reserve fuer die 125-Hz-Regelung braucht, schaltet ihn ab,
+    # ohne eine Datei anzufassen:
+    #   RVIZ_AUTOSTART=0 docker compose -f docker-compose.yml -f docker-compose.robot.yml up -d
     environment:
       - ZENOH_LOCAL=1             # kein eigener Router; robot-lokalen nutzen
       - ROBOT_ZENOH_ENDPOINT=     # leer: zenoh-connect.sh nutzt ZENOH_LOCAL-Zweig

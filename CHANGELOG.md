@@ -56,10 +56,14 @@ die Versionierung [Semantic Versioning](https://semver.org/lang/de/).
   Shutdown von `husky-demo-imitate` inaktiv ist und Execute mit "Plan and
   Execute request aborted" abbricht. Der Roboter-Override schaltet ihn **nicht**
   wieder ein — auf dem Roboter zu laufen ist kein Grund, den Arm zu bestromen.
-- **Der Roboter-Override nimmt den Autostart zurück** (`command: sleep
-  infinity`). RViz rechnet dort in llvmpipe und konkurriert mit
-  `move_group`/Controllern — die 125-Hz-Regelung soll nicht darunter leiden.
-  Die Begründung stand schon im Kopf der Datei, jetzt setzt sie auch etwas um.
+- **Der Autostart gilt jetzt auch auf dem Roboter.** Er war dort zunächst
+  zurückgenommen, weil RViz in llvmpipe rechnet und mit `move_group` und den
+  Controllern konkurriert. Ein Container mit genau einer Aufgabe sollte sie
+  aber tun; ein leerer Desktop, auf dem man erst `moveit-rviz` tippt, ist keine
+  Bedienung. Die Last bleibt real — deshalb ist die Abschaltung jetzt ein
+  Schalter statt einer Dateiänderung: `RVIZ_AUTOSTART=0`. Beide Richtungen am
+  2026-08-20 im Container gegengemessen (mit `0` kein `rviz2`-Prozess und die
+  passende Logzeile, ohne genau einer).
 
 ### Behoben
 - **"Clear octomap" rief den Dienst unter dem falschen Namen.** Das
