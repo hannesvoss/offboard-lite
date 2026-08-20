@@ -7,7 +7,9 @@
 #   offboard/LAN:        docker compose up --build
 #   AUF dem Roboter:     docker compose -f docker-compose.yml -f docker-compose.robot.yml up --build
 #
-#   Browser: http://localhost:6080/vnc.html -> xterm -> moveit-rviz
+#   RViz startet automatisch (command: moveit-rviz). Zusehen wahlweise
+#     Browser:     http://localhost:6080/vnc.html
+#     VNC-Viewer:  vnc://localhost:5900   (ohne noVNC, am Mac 'open vnc://...')
 #
 # Hinweis: read-only. Es wird KEIN zweites move_group und KEINE zweite
 # /a200_0553/*-Quelle gestartet -> gefahrlos gegen den echten Roboter. Geplant
@@ -36,6 +38,26 @@ services:
       - ROBOT_ZENOH_ENDPOINT=${ROBOT_ZENOH_ENDPOINT:-tcp/10.42.42.159:7447}   # LAN-IP:Port des Roboter-Zenoh-Routers
       - ROS_DOMAIN_ID=0
       - CLEARPATH_NS=a200_0553
+      # Dieses Image bestromt den Arm nicht. moveit-rviz kann den
+      # Trajektorien-Controller reaktivieren und ruft dafuer
+      # ur_state_manager/prepare -- das legt Energie auf die Gelenke des ECHTEN
+      # Arms. lite schaut zu, es plant nicht; erst recht nicht unbeaufsichtigt
+      # beim Hochfahren. Der Schalter bleibt durchgereicht, damit man ihn im
+      # Bedarfsfall bewusst umlegen kann: JTC_REACTIVATE=1 docker compose up -d
+      - JTC_REACTIVATE=${JTC_REACTIVATE:-0}
+    # RViz+MoveIt direkt beim Hochfahren, statt erst xterm im noVNC-Desktop.
+    # Beendet man RViz, bleibt der Container offen -> im xterm neu startbar.
+    # Abschaltbar durch Override (s. docker-compose.robot.yml).
+    command:
+      - bash
+      - -lc
+      - "moveit-rviz; echo '[lite] RViz beendet -- neu starten: moveit-rviz'; exec sleep infinity"
     ports:
-      - "6080:6080"          # noVNC (RViz im Browser)
+      - "6080:6080"             # noVNC (RViz im Browser)
+      # Rohes VNC direkt von x11vnc (-nopw!) -- ohne noVNC/Browser. Am Mac:
+      #   open vnc://localhost:5900     (Bildschirmfreigabe, kein Passwort)
+      # Bewusst nur an 127.0.0.1 gebunden: x11vnc laeuft ohne Passwort, das
+      # gehoert nicht ins LAN. (Wer 6080 genauso dichtmachen will: dort
+      # ebenfalls "127.0.0.1:" voranstellen -- kostet den Zugriff vom Laptop.)
+      - "127.0.0.1:5900:5900"   # VNC (RFB) fuer einen nativen Viewer
     restart: "no"

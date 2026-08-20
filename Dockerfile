@@ -96,7 +96,8 @@ RUN chmod +x /entrypoint.sh /usr/local/bin/moveit-rviz /usr/local/bin/teach-pose
 # RMW/DOMAIN/LIBGL/DISPLAY/CLEARPATH_NS/NOVNC_* erben aus der Base; Compose kann
 # sie ueberschreiben. Kein offboard-spezifisches CLEARPATH_SETUP hier.
 
-EXPOSE 6080
+# 6080 = noVNC (Browser), 5900 = rohes VNC von x11vnc (nativer Viewer).
+EXPOSE 6080 5900
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["sleep", "infinity"]

@@ -22,7 +22,12 @@ services:
   moveit-rviz:
     logging: *logging
     network_mode: host            # Netzwerk-Stack des Roboters -> Zenoh-Router localhost:7447
-    ports: !reset []              # host networking exponiert 6080 direkt (kein Mapping)
+    ports: !reset []              # host networking exponiert 6080/5900 direkt (kein Mapping)
+    # KEIN Autostart auf dem Roboter: RViz rechnet in llvmpipe und konkurriert
+    # mit move_group/Controllern (s. Kopf, 125-Hz-Regelung). Der Autostart aus
+    # dem Basis-Compose wird hier bewusst zurueckgenommen -- RViz startet man im
+    # noVNC-xterm von Hand mit  moveit-rviz.
+    command: ["sleep", "infinity"]
     environment:
       - ZENOH_LOCAL=1             # kein eigener Router; robot-lokalen nutzen
       - ROBOT_ZENOH_ENDPOINT=     # leer: zenoh-connect.sh nutzt ZENOH_LOCAL-Zweig

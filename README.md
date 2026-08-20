@@ -11,7 +11,10 @@ UR5). RViz runs in the browser (noVNC).
   stack, no Clearpath bringup in the container.
 - **Slim**: only what a viewing and teaching client needs.
 - **`teach-pose`** writes poses straight into the `robot.yaml` shape.
-- **GUI over noVNC**, same as the full offboard container.
+- **RViz starts by itself** — `command: moveit-rviz` in the base compose, so
+  `docker compose up -d` is the whole ritual; no xterm click-through.
+- **Two ways to watch**: noVNC in the browser (`:6080`) *or* a native VNC
+  viewer straight on `:5900` (no browser, no websockify in the path).
 
 ## Tech Stack
 
@@ -111,16 +114,42 @@ docker compose up -d
 ```bash
 # 1) Set ROBOT_ZENOH_ENDPOINT in docker-compose.yml to the robot's
 #    LAN IP:Port (port defaults to 7447).
-# 2) start:
-docker compose up --build
-# 3) open in browser:
-#    http://localhost:6080/vnc.html
-# 4) in the fluxbox desktop open an xterm (right-click -> Applications -> xterm)
-#    and run:
-moveit-rviz
+# 2) start -- RViz+MoveIt comes up with the container:
+docker compose up -d
+# 3a) watch in a native VNC viewer (no noVNC in the path). On macOS the
+#     built-in Screen Sharing client handles this:
+open vnc://localhost:5900
+# 3b) or in the browser, as before:
+#     http://localhost:6080/vnc.html
 ```
-`moveit-rviz` briefly checks whether `/a200_0553/move_group` is visible in the
-graph, then starts RViz with a preconfigured MotionPlanning panel.
+The container runs `moveit-rviz` as its `command`: it briefly checks whether
+`/a200_0553/move_group` is visible in the graph, then starts RViz with a
+preconfigured MotionPlanning panel. Closing the RViz window does **not** kill
+the container — it drops back to `sleep infinity`, so you can reopen it from an
+xterm on the desktop with `moveit-rviz`, or `docker compose restart`.
+
+**Port 5900 is bound to `127.0.0.1` on purpose.** `x11vnc` runs `-nopw`, i.e.
+without a password — a passwordless remote framebuffer has no business on the
+LAN. Reaching it from another machine is an SSH tunnel away
+(`ssh -L 5900:localhost:5900 <host>`), not a compose edit. Port 6080 keeps its
+previous binding (all interfaces).
+
+**This image does not energize the arm.** `moveit-rviz` can reactivate the
+arm's trajectory controller, and to do that it calls `ur_state_manager/prepare`
+— which puts power on the joints of the **real** robot. `husky-offboard-lite`
+is the observer in this setup: it hosts no `move_group`, it does not plan, and
+it has no business energizing anything, least of all unattended while a
+container boots. `JTC_REACTIVATE` therefore defaults to **`0`** in the script
+itself, not just in the compose file, so a hand-typed `moveit-rviz` inside the
+container behaves the same way.
+
+Need the reactivation anyway — typically after `husky-demo-imitate`'s graceful
+shutdown left the JTC inactive and MoveIt Execute aborts with *"Plan and Execute
+request aborted"*? Then say so, for that one run:
+```bash
+JTC_REACTIVATE=1 moveit-rviz              # inside the container
+JTC_REACTIVATE=1 docker compose up -d     # or for the whole container
+```
 
 **Gripper meshes stay current on their own.** The build re-fetches
 `onrobot-rg6` (`RG6_REF`, default `main`) and rebuilds `rg6_description`; a
@@ -140,6 +169,12 @@ docker compose -f docker-compose.yml -f docker-compose.robot.yml up --build
 # from the laptop browser:
 #   http://<robot-ip>:6080/vnc.html  -> xterm -> moveit-rviz
 ```
+The robot override **takes the autostart back out** (`command: sleep infinity`)
+for the load reason below — there RViz is started by hand, as before. It does
+**not** re-enable `JTC_REACTIVATE`: running on the robot is not a reason for
+this image to energize the arm either. With `network_mode: host` there is no
+port mapping, so `5900` is reachable directly on the robot's address; that is
+the robot's network, and `-nopw` applies there too.
 Things to keep in mind:
 - **CPU architecture:** build on the **robot** (x86_64). An image built on Apple
   Silicon (arm64) won't run there without `docker buildx --platform linux/amd64`.

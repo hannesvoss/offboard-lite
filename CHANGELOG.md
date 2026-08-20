@@ -7,6 +7,22 @@ die Versionierung [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+- **RViz kommt jetzt mit dem Container hoch.** Der Basis-Compose setzt
+  `command: moveit-rviz` — `docker compose up -d` genügt, der Umweg über
+  noVNC-Desktop → Rechtsklick → xterm → `moveit-rviz` entfällt. Beendet man
+  RViz, fällt der Container auf `sleep infinity` zurück und bleibt bedienbar,
+  statt zu enden.
+- **Port 5900 (rohes VNC) wird gepublished.** `x11vnc` lauschte im Container
+  schon immer auf `5900`; noVNC/websockify auf `6080` war nur der Web-Aufsatz
+  davor. Mit dem Mapping geht ein nativer VNC-Viewer direkt an den
+  Framebuffer — am Mac `open vnc://localhost:5900` (Bildschirmfreigabe). Am
+  2026-08-20 gegengemessen: RFB-Banner `RFB 003.008`, RViz-Prozess läuft ohne
+  Zutun.
+
+  Gebunden an `127.0.0.1`, nicht an `0.0.0.0`: `x11vnc` läuft mit `-nopw`, ein
+  passwortloser Framebuffer gehört nicht ins LAN. Von außen: SSH-Tunnel.
+
 ### Geändert
 - **`JTC_REACTIVATE` ist jetzt standardmäßig `0` — lite bestromt den Arm
   nicht.** `moveit-rviz` reaktiviert den Trajektorien-Controller und ruft dafür
@@ -21,6 +37,10 @@ die Versionierung [Semantic Versioning](https://semver.org/lang/de/).
   Shutdown von `husky-demo-imitate` inaktiv ist und Execute mit "Plan and
   Execute request aborted" abbricht. Der Roboter-Override schaltet ihn **nicht**
   wieder ein — auf dem Roboter zu laufen ist kein Grund, den Arm zu bestromen.
+- **Der Roboter-Override nimmt den Autostart zurück** (`command: sleep
+  infinity`). RViz rechnet dort in llvmpipe und konkurriert mit
+  `move_group`/Controllern — die 125-Hz-Regelung soll nicht darunter leiden.
+  Die Begründung stand schon im Kopf der Datei, jetzt setzt sie auch etwas um.
 
 ### Behoben
 - **"Clear octomap" rief den Dienst unter dem falschen Namen.** Das
