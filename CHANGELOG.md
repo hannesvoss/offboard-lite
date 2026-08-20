@@ -7,6 +7,21 @@ die Versionierung [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+- **`JTC_REACTIVATE` ist jetzt standardmäßig `0` — lite bestromt den Arm
+  nicht.** `moveit-rviz` reaktiviert den Trajektorien-Controller und ruft dafür
+  `ur_state_manager/prepare`; das legt Energie auf die Gelenke des **echten**
+  Arms. Dieses Image ist der Zuschauer: es hostet kein `move_group`, es plant
+  nicht, und es soll erst recht nicht unbeaufsichtigt beim Hochfahren
+  einschalten. Der Default sitzt deshalb **im Skript**, nicht nur im Compose —
+  ein von Hand getipptes `moveit-rviz` im Container verhält sich genauso.
+
+  Der Schalter bleibt: `JTC_REACTIVATE=1 moveit-rviz` bzw.
+  `JTC_REACTIVATE=1 docker compose up -d`, wenn der JTC nach dem Graceful
+  Shutdown von `husky-demo-imitate` inaktiv ist und Execute mit "Plan and
+  Execute request aborted" abbricht. Der Roboter-Override schaltet ihn **nicht**
+  wieder ein — auf dem Roboter zu laufen ist kein Grund, den Arm zu bestromen.
+
 ### Behoben
 - **"Clear octomap" rief den Dienst unter dem falschen Namen.** Das
   MotionPlanning-Plugin haengt "Move Group Namespace" an jeden seiner

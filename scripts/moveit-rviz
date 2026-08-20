@@ -76,11 +76,17 @@ fi
 # Zielcontroller inaktiv ist. Hier stellen wir JTC + Arm-Versorgung idempotent
 # wieder her - aber NUR, falls der JTC gerade nicht aktiv ist. Am bereits
 # betriebsbereiten Roboter wird also nichts veraendert.
-# Abschaltbar: JTC_REACTIVATE=0. Manipulators-Namespace per MANIP_NS
-# (Default <NS>/manipulators), Controllername per JTC_NAME.
+#
+# STANDARDMAESSIG AUS. 'prepare' bestromt den ECHTEN Arm, und dieses Image ist
+# der Zuschauer im Stall: es plant nicht, es hostet kein move_group, es soll
+# auch keine Energie auf die Gelenke geben. Wer die Reaktivierung braucht (etwa
+# nach dem Graceful Shutdown von husky-demo-imitate), schaltet sie fuer den
+# einen Aufruf frei:  JTC_REACTIVATE=1 moveit-rviz
+# Manipulators-Namespace per MANIP_NS (Default <NS>/manipulators),
+# Controllername per JTC_NAME.
 MANIP_NS="${MANIP_NS:-${NS}/manipulators}"
 JTC="${JTC_NAME:-arm_0_joint_trajectory_controller}"
-if [ "${JTC_REACTIVATE:-1}" = "1" ]; then
+if [ "${JTC_REACTIVATE:-0}" = "1" ]; then
     log_info "pruefe Arm-Controller (mode/active) ..."
     active_msg=""
     if command -v timeout >/dev/null 2>&1; then
@@ -134,7 +140,7 @@ if [ "${JTC_REACTIVATE:-1}" = "1" ]; then
             ;;
     esac
 else
-    log_info "JTC_REACTIVATE=0 -> Arm-Controller-Reaktivierung uebersprungen."
+    log_info "JTC_REACTIVATE!=1 -> Arm bleibt unangetastet (kein prepare, kein JTC)."
 fi
 
 # --- URDF + SRDF vom laufenden Roboter holen und als LOKALE Params an RViz ---
