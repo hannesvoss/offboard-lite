@@ -139,9 +139,21 @@ never asks for it — `websockify` reaches 5900 over the container's own
 loopback.
 
 **Port 5900 is bound to `127.0.0.1` on the host side** — the password guards
-the protocol, the binding keeps the offboard container's framebuffer off the
-LAN entirely. From another machine: `ssh -L 5900:localhost:5900 <host>`. Port
+the protocol, the binding keeps the framebuffer off the network unless you ask
+for it. From another machine, either tunnel:
+```bash
+ssh -f -N -L 5900:127.0.0.1:5900 <host>     # then vnc://localhost:5900
+```
+or publish it deliberately with `VNC_BIND=0.0.0.0 docker compose up -d`. Port
 6080 keeps its previous binding (all interfaces).
+
+**That mapping only exists in the bridge network.** With
+`docker-compose.robot.yml` (`network_mode: host`) there is no port mapping at
+all and `x11vnc` binds `0.0.0.0` itself. Forget the override on the robot and
+the host shows `127.0.0.1:5900` — which is the docker-proxy of the line above,
+looking exactly like an `x11vnc` that ignores `-listen`. It cost a debugging
+session once; the tell is that RViz autostarts, which the robot override
+disables.
 
 **Both host ports are movable.** The full `husky-offboard` container publishes
 6080 as well, so the two cannot come up side by side on defaults:

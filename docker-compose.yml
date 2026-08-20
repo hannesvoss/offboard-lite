@@ -65,8 +65,17 @@ services:
       - "${NOVNC_PORT:-6080}:6080"   # noVNC (RViz im Browser)
       # Rohes VNC direkt von x11vnc (-nopw!) -- ohne noVNC/Browser. Am Mac:
       #   open vnc://localhost:5900     (Bildschirmfreigabe, kein Passwort)
-      # Bewusst nur an 127.0.0.1 gebunden: x11vnc laeuft ohne Passwort, das
-      # gehoert nicht ins LAN. (Wer 6080 genauso dichtmachen will: dort
-      # ebenfalls "127.0.0.1:" voranstellen -- kostet den Zugriff vom Laptop.)
-      - "127.0.0.1:${VNC_PORT:-5900}:5900"   # VNC (RFB) fuer einen nativen Viewer
+      # Default-Bind ist 127.0.0.1: der Framebuffer soll nicht ungefragt im
+      # Netz stehen. Von einem anderen Rechner also entweder per Tunnel
+      #   ssh -f -N -L 5900:127.0.0.1:5900 <host>
+      # oder bewusst oeffnen mit  VNC_BIND=0.0.0.0 docker compose up -d.
+      #
+      # ACHTUNG, die Verwechslung hat schon eine Fehlersuche gekostet: dieses
+      # Mapping gilt NUR im Bridge-Netz. Mit docker-compose.robot.yml
+      # (network_mode: host) gibt es gar kein Mapping, dann bindet x11vnc
+      # selbst auf 0.0.0.0. Wer auf dem Roboter den Override vergisst, sieht
+      # auf dem Host 127.0.0.1:5900 -- das ist dann der docker-proxy dieser
+      # Zeile und sieht wie ein x11vnc aus, das -listen ignoriert.
+      # (Wer 6080 dichtmachen will: dort ebenfalls "127.0.0.1:" voranstellen.)
+      - "${VNC_BIND:-127.0.0.1}:${VNC_PORT:-5900}:5900"   # VNC (RFB) fuer einen nativen Viewer
     restart: "no"

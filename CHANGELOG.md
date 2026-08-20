@@ -17,6 +17,13 @@ die Versionierung [Semantic Versioning](https://semver.org/lang/de/).
   Typ `2` angeboten, Anmeldung akzeptiert, Framebuffer 1600x900 übergeben.
   Die Mechanik sitzt in `start-desktop.sh` der
   [Base](../husky-offboard-base/README.md).
+- **`VNC_BIND` (Default `127.0.0.1`) öffnet den VNC-Port bewusst.** Der
+  Framebuffer soll nicht ungefragt im Netz stehen; von außen führt der Weg
+  über einen SSH-Tunnel oder eben `VNC_BIND=0.0.0.0`. Das Mapping gilt nur im
+  Bridge-Netz — mit `docker-compose.robot.yml` (`network_mode: host`) gibt es
+  keines, dort bindet `x11vnc` selbst auf `0.0.0.0`. Wer den Override auf dem
+  Roboter vergisst, sieht auf dem Host `127.0.0.1:5900` und hält den
+  docker-proxy dieser Zeile für ein `x11vnc`, das `-listen` ignoriert.
 - **`NOVNC_PORT`/`VNC_PORT` machen die Host-Ports verschiebbar.** Der große
   `husky-offboard`-Container publisht 6080 ebenfalls; auf Defaults können beide
   nicht nebeneinander hochkommen. `NOVNC_PORT=6081 docker compose up -d`.
